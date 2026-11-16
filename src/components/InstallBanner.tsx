@@ -51,7 +51,7 @@ export function InstallBanner() {
       <div className="install-head">
         <img src="/icons/icon-192.png" alt="" width={48} height={48} />
         <div className="install-text">
-          <strong>Instala Las Primas</strong>
+          <strong>Instala Las Primas Club</strong>
           <span className="small muted">Ábrela desde tu pantalla de inicio, como una app.</span>
         </div>
       </div>
