@@ -342,17 +342,50 @@ select {
   .add-member { grid-template-columns: 1fr; }
 }
 
-/* ---------- Aviso de instalación ---------- */
-.install-banner {
-  display: flex; align-items: center; gap: 12px; margin-top: 16px; padding: 12px 14px;
-  border: 1px solid var(--line); border-radius: 8px; background: var(--panel);
+/* ---------- Aviso de instalación (tarjeta flotante) ---------- */
+.install-sheet {
+  position: fixed; z-index: 40; right: 24px; bottom: 24px; width: min(380px, calc(100vw - 32px));
+  background: #fff; border: 1px solid var(--line-strong); border-radius: 12px; padding: 16px;
+  box-shadow: 0 18px 50px rgb(0 0 0 / 18%);
+  animation: install-in 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2);
 }
-.install-banner img { border-radius: 10px; flex-shrink: 0; }
-.install-text { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.35; }
-.install-banner .btn { padding: 8px 16px; }
+@keyframes install-in { from { opacity: 0; transform: translateY(24px); } }
+@media (prefers-reduced-motion: reduce) { .install-sheet { animation: none; } }
+.install-head { display: flex; align-items: center; gap: 12px; padding-right: 28px; }
+.install-head img { border-radius: 12px; flex-shrink: 0; }
+.install-text { display: flex; flex-direction: column; line-height: 1.35; min-width: 0; }
+.install-text strong { font-size: 1.05rem; }
+.install-actions { display: flex; gap: 10px; margin-top: 14px; }
+.install-actions .btn { flex: 1; padding: 9px 12px; min-height: 44px; }
 .install-close {
-  background: none; border: 0; font-size: 1.6rem; line-height: 1; color: var(--muted); cursor: pointer;
-  width: 36px; height: 36px; flex-shrink: 0;
+  position: absolute; top: 6px; right: 6px; width: 36px; height: 36px; border: 0; background: none;
+  font-size: 1.5rem; line-height: 1; color: var(--muted); cursor: pointer; border-radius: 50%;
+}
+.install-close:hover { background: var(--panel); color: var(--ink); }
+.install-steps { margin: 14px 0 0; padding-left: 22px; display: grid; gap: 10px; font-size: 0.95rem; }
+.install-key {
+  display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 6px;
+  background: var(--panel); border: 1px solid var(--line); font-weight: 600; white-space: nowrap;
+  vertical-align: middle;
+}
+.install-key svg { color: #0a84ff; }
+.install-arrow {
+  display: block; text-align: center; font-size: 1.6rem; line-height: 1; color: var(--accent);
+  margin-top: 8px; animation: install-bounce 1.2s ease-in-out infinite;
+}
+@keyframes install-bounce { 50% { transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) { .install-arrow { animation: none; } }
+
+@media (max-width: 720px) {
+  /* Encima de la barra inferior, de lado a lado */
+  .install-sheet {
+    left: 12px; right: 12px; width: auto;
+    bottom: calc(76px + env(safe-area-inset-bottom));
+  }
+}
+/* La barra de Safari en iPhone está abajo: el aviso de iOS queda pegado a ella */
+@media (max-width: 720px) {
+  .install-sheet.is-ios-help { border-color: var(--accent); }
 }
 
 /* ---------- Barra inferior (móvil) ---------- */

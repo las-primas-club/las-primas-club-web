@@ -64,7 +64,6 @@ export function App() {
       </header>
       <ScrollToTop />
       <main className="container">
-        <InstallBanner />
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/actual" element={<CurrentBook />} />
@@ -84,6 +83,7 @@ export function App() {
           <span>Leemos juntos, opinamos por separado.</span>
         </div>
       </footer>
+      <InstallBanner />
       {/* Barra inferior tipo app, solo en móvil */}
       <nav className="tabbar" aria-label="Navegación">
         {NAV.map(({ to, short, icon: Icon, end }) => (
