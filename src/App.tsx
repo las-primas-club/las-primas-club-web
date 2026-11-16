@@ -22,7 +22,10 @@ const NAV = [
 /** Al cambiar de página, volver arriba (en el móvil se nota mucho). */
 function ScrollToTop() {
   const { pathname } = useLocation();
-  useEffect(() => window.scrollTo(0, 0), [pathname]);
+  // Con llaves: en Chrome reciente scrollTo() devuelve una Promise y React la tomaría por la función de limpieza.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
   return null;
 }
 
