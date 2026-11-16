@@ -420,10 +420,8 @@ select {
   .tabbar a.active svg { stroke-width: 2.3; }
   .tabbar a:active { background: var(--accent-soft); }
 
-  main.container { padding-bottom: 40px; }
-  /* Pie compacto, por encima de la barra inferior */
-  .site-footer { padding: 24px 0 calc(90px + env(safe-area-inset-bottom)); }
-  .footer-inner { flex-direction: column; text-align: center; gap: 10px; }
+  main.container { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+  .site-footer { display: none; }
 
   /* Tipografía y espacios */
   .page, .book-detail { padding-top: 24px; }
