@@ -4,6 +4,7 @@ import { api } from "../api";
 import { useAuth } from "../auth";
 import { formatDate, formatDateTime } from "../format";
 import { Cover } from "./Cover";
+import { EbookPanel } from "./EbookPanel";
 import { RequireLogin } from "./LoginBox";
 import { Stars } from "./Stars";
 
@@ -122,6 +123,8 @@ export function BookDetailView({ book, onChange }: { book: BookDetail; onChange:
           <p className="description">{book.description}</p>
         </section>
       )}
+
+      <EbookPanel book={book} onChange={onChange} />
 
       <section className="detail-section">
         <h2 className="rule-title">Comentarios ({book.comments.length})</h2>

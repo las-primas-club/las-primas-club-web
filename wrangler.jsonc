@@ -23,13 +23,21 @@
 			"migrations_dir": "migrations"
 		}
 	],
+	// Archivos epub de los libros (gratis: 1 GB y hasta 25 MiB por archivo)
+	"kv_namespaces": [
+		{ "binding": "EPUBS", "id": "2a41f688b1a943e6a1ffde49e325baeb" }
+	],
 	"vars": {
 		// Client ID público de Google OAuth (no es secreto).
-		"GOOGLE_CLIENT_ID": "48926094831-jee1eqjs1p88r4dso557gmqbr4p7e2lc.apps.googleusercontent.com"
+		"GOOGLE_CLIENT_ID": "48926094831-jee1eqjs1p88r4dso557gmqbr4p7e2lc.apps.googleusercontent.com",
+		// Remitente de los envíos al Kindle (dominio verificado en Resend). Cada miembro debe
+		// añadir esta dirección a su lista de emails aprobados de Amazon.
+		"KINDLE_FROM": "Las Primas Club <libros@las-primas-club.rdvl.net>"
 	},
 	// Secretos (configurar con `npx wrangler secret put NOMBRE`):
 	//   ADMIN_EMAILS (opcional): admins de emergencia, siempre pueden entrar. Los miembros se gestionan en /admin.
 	//   GOOGLE_BOOKS_API_KEY (opcional): clave gratuita de Google Books para buscar libros
+	//   RESEND_API_KEY (opcional): clave de Resend (gratis, 100 emails/día) para "Enviar a mi Kindle"
 	"observability": {
 		"enabled": true
 	}

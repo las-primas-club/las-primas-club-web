@@ -7,6 +7,10 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     body: body !== undefined ? JSON.stringify(body) : undefined,
     credentials: "same-origin",
   });
+  return parse<T>(res);
+}
+
+async function parse<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => null);
   if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? `Error ${res.status}`);
   return data as T;
@@ -30,6 +34,18 @@ export const api = {
   rate: (id: number, score: number) => request("PUT", `/books/${id}/rating`, { score }),
   comment: (id: number, body: string) => request("POST", `/books/${id}/comments`, { body }),
   deleteComment: (id: number) => request("DELETE", `/comments/${id}`),
+
+  epubUrl: (id: number) => `/api/books/${id}/epub`,
+  uploadEpub: (id: number, file: File) =>
+    fetch(`/api/books/${id}/epub`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/epub+zip", "X-Filename": encodeURIComponent(file.name) },
+      body: file,
+      credentials: "same-origin",
+    }).then((r) => parse(r)),
+  deleteEpub: (id: number) => request("DELETE", `/books/${id}/epub`),
+  saveKindleEmail: (email: string | null) => request("PUT", "/me/kindle", { email }),
+  sendToKindle: (id: number) => request<{ ok: true; to: string }>("POST", `/books/${id}/kindle`),
 
   searchBooks: (q: string, signal?: AbortSignal) =>
     fetch(`/api/search?q=${encodeURIComponent(q)}`, { signal, credentials: "same-origin" }).then(async (r) => {

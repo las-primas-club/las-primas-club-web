@@ -74,13 +74,31 @@ secreto opcional `ADMIN_EMAILS` son siempre admins y no se pueden quitar desde l
 npx wrangler secret put ADMIN_EMAILS     # opcional, p. ej. tu-email@gmail.com
 ```
 
-### 4. Desplegar
+### 4. Enviar al Kindle (opcional, gratis)
+
+Los epub se guardan en **Workers KV** (namespace `EPUBS`, ya en `wrangler.jsonc`; gratis hasta 1 GB y 25 MB por archivo).
+Descargarlos funciona sin más. Para el botón **Enviar a mi Kindle** hace falta [Resend](https://resend.com)
+(plan gratuito: 100 emails/día; el Email Sending de Cloudflare exige el plan de pago para enviar a direcciones de fuera):
+
+1. Crea la cuenta en Resend → **Domains → Add domain** → `las-primas-club.rdvl.net`. Usa *Auto configure* con Cloudflare
+   o copia los registros DNS (DKIM, SPF y MX en subdominios; no tocan la web) en la zona `rdvl.net`. Espera a que salga *Verified*.
+2. **API Keys → Create** (permiso *Sending access*) y guárdala en el Worker:
+   ```bash
+   npx wrangler secret put RESEND_API_KEY
+   ```
+3. El remitente es `KINDLE_FROM` en `wrangler.jsonc` (`libros@las-primas-club.rdvl.net`). Cada miembro debe añadirlo a su
+   *Lista de direcciones de correo electrónico aprobadas* de Amazon; la web le explica cómo.
+
+Resend descarga el epub de un enlace temporal (`/api/kindle-file/<token>`, válido 60 min) en vez de recibirlo en base64,
+para no pasar de los 10 ms de CPU del plan gratuito de Workers.
+
+### 5. Desplegar
 
 ```bash
 npm run deploy    # build + migraciones remotas + wrangler deploy
 ```
 
-### 5. Despliegue automático con GitHub Actions
+### 6. Despliegue automático con GitHub Actions
 
 `.github/workflows/deploy.yml` hace, en cada push a `main`: build → migraciones de D1 (`--remote`) → `wrangler deploy` →
 comprobación de que `/api/config` responde. En las PR solo comprueba que compila.
@@ -88,7 +106,7 @@ comprobación de que `/api/config` responde. En las PR solo comprueba que compil
 Configuración (una vez):
 
 1. Cloudflare → **My Profile → API Tokens → Create Token** → plantilla **Edit Cloudflare Workers**, y añade el permiso
-   **Account → D1 → Edit**. Limita *Account Resources* a tu cuenta y *Zone Resources* a `rdvl.net`.
+   **Account → D1 → Edit** (la plantilla ya incluye *Workers KV Storage*). Limita *Account Resources* a tu cuenta y *Zone Resources* a `rdvl.net`.
 2. En GitHub (o con `gh`):
    ```bash
    gh secret set CLOUDFLARE_API_TOKEN          # pega el token cuando lo pida
@@ -106,9 +124,11 @@ No actives también *Workers Builds* en Cloudflare, o se desplegaría dos veces.
 - **Admin** (panel en `/admin`): gestiona miembros, edita o borra libros y abre, cierra o cancela rondas. Abre la ronda y la cierra (el más votado pasa a ser el libro en curso y el anterior se marca como leído).
   También puede marcar un libro como terminado o empezar uno sin votación (*leer ya*, útil para el primer libro).
 - **Puntuar y comentar**: en el libro en curso y en cualquier libro leído.
+- **Epub**: un admin lo sube desde la ficha del libro (*subir epub*). Cualquier miembro puede descargarlo o, tras guardar
+  su dirección `@kindle.com`, mandárselo al Kindle (máx. 10 envíos al día por persona).
 
 ## Roadmap
 
 - [ ] Sección de cine (mismo modelo: propuestas, votación y reseñas)
-- [ ] Subir epub a R2 y descargarlos (R2 gratis hasta 10 GB)
-- [ ] Enviar al ebook/Kindle por email (Cloudflare Email Service)
+- [x] Subir epub y descargarlos (Workers KV)
+- [x] Enviar al Kindle por email (Resend)

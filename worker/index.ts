@@ -3,6 +3,17 @@ import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { HTTPException } from "hono/http-exception";
 import type { AccessRequest, AppConfig, Book, BookDetail, Comment, Member, Rating, Round, User } from "../shared/types";
 import { searchBooks } from "./bookSearch";
+import {
+  KINDLE_ADDRESS,
+  KindleSendError,
+  MAX_EPUB_BYTES,
+  contentDisposition,
+  epubFileName,
+  epubKey,
+  kindleEnabled,
+  looksLikeEpub,
+  sendToKindle,
+} from "./ebook";
 import { newSessionToken, parseEmailList, verifyGoogleToken, type GoogleProfile } from "./auth";
 
 type AppEnv = { Bindings: Env; Variables: { user: User | null } };
@@ -20,7 +31,7 @@ app.use("*", async (c, next) => {
   const token = getCookie(c, SESSION_COOKIE);
   if (token) {
     const row = await c.env.DB.prepare(
-      `SELECT u.id, u.name, u.email, u.picture, m.role FROM sessions s
+      `SELECT u.id, u.name, u.email, u.picture, u.kindle_email, m.role FROM sessions s
        JOIN users u ON u.id = s.user_id
        LEFT JOIN members m ON m.email = u.email
        WHERE s.id = ? AND s.expires_at > datetime('now')`,
@@ -37,6 +48,7 @@ app.use("*", async (c, next) => {
 });
 
 // Toda la API exige sesión, salvo lo necesario para poder iniciarla.
+// El enlace temporal del epub (/api/kindle-file/<token>) también es público: lo descarga Resend, no el navegador.
 const PUBLIC_PATHS = new Set([
   "/api/config",
   "/api/me",
@@ -47,7 +59,8 @@ const PUBLIC_PATHS = new Set([
 ]);
 
 app.use("*", async (c, next) => {
-  if (!PUBLIC_PATHS.has(c.req.path) && !c.get("user")) {
+  const isPublic = PUBLIC_PATHS.has(c.req.path) || c.req.path.startsWith("/api/kindle-file/");
+  if (!isPublic && !c.get("user")) {
     return c.json({ error: "Tienes que iniciar sesión" }, 401);
   }
   await next();
@@ -147,7 +160,11 @@ async function loginAs(c: Ctx, profile: GoogleProfile): Promise<void> {
 // ---------- Config y auth ----------
 
 app.get("/config", (c) =>
-  c.json<AppConfig>({ googleClientId: c.env.GOOGLE_CLIENT_ID ?? "", devLogin: devLoginEnabled(c) }),
+  c.json<AppConfig>({
+    googleClientId: c.env.GOOGLE_CLIENT_ID ?? "",
+    devLogin: devLoginEnabled(c),
+    kindleFrom: kindleEnabled(c.env) ? c.env.KINDLE_FROM : null,
+  }),
 );
 
 app.get("/me", (c) => c.json(c.get("user")));
@@ -216,7 +233,7 @@ app.get("/search", async (c) => {
 
 const BOOK_SELECT = `
   SELECT b.id, b.title, b.author, b.cover_url, b.description, b.status,
-         b.started_at, b.finished_at, b.proposed_by, p.name AS proposed_by_name,
+         b.started_at, b.finished_at, b.proposed_by, p.name AS proposed_by_name, b.epub_name, b.epub_size,
          ROUND(AVG(r.score), 1) AS avg_rating, COUNT(r.score) AS rating_count
   FROM books b
   LEFT JOIN users p ON p.id = b.proposed_by
@@ -307,6 +324,7 @@ app.delete("/books/:id", async (c) => {
     if (book.proposed_by !== user.id) throw new HTTPException(403, { message: "No es tu propuesta" });
   }
   await c.env.DB.prepare(`DELETE FROM books WHERE id = ?`).bind(id).run();
+  c.executionCtx.waitUntil(c.env.EPUBS.delete(epubKey(id)));
   return c.json({ ok: true });
 });
 
@@ -384,6 +402,137 @@ app.delete("/comments/:id", async (c) => {
   if (comment.user_id !== user.id && !user.isAdmin) throw new HTTPException(403, { message: "No es tu comentario" });
   await c.env.DB.prepare(`DELETE FROM comments WHERE id = ?`).bind(id).run();
   return c.json({ ok: true });
+});
+
+// ---------- Epub y envío al Kindle ----------
+
+const KINDLE_SENDS_PER_DAY = 10;
+const KINDLE_LINK_MINUTES = 60;
+
+/** Admin: subir (o reemplazar) el epub de un libro. El cuerpo es el archivo tal cual. */
+app.put("/books/:id/epub", async (c) => {
+  requireAdmin(c);
+  const id = idParam(c);
+  if (Number(c.req.header("content-length") ?? 0) > MAX_EPUB_BYTES) bad("El epub no puede pasar de 25 MB");
+  const book = await c.env.DB.prepare(`SELECT title FROM books WHERE id = ?`).bind(id).first<{ title: string }>();
+  if (!book) throw new HTTPException(404, { message: "Libro no encontrado" });
+
+  const data = await c.req.arrayBuffer();
+  if (!data.byteLength) bad("El archivo está vacío");
+  if (data.byteLength > MAX_EPUB_BYTES) bad("El epub no puede pasar de 25 MB");
+  if (!looksLikeEpub(new Uint8Array(data, 0, Math.min(4, data.byteLength)))) bad("Ese archivo no parece un epub");
+
+  let original = "";
+  try {
+    original = decodeURIComponent(c.req.header("x-filename") ?? "");
+  } catch {
+    /* nombre ilegible: usamos el título */
+  }
+  const name = epubFileName(original, book.title);
+  await c.env.EPUBS.put(epubKey(id), data);
+  await c.env.DB.prepare(`UPDATE books SET epub_name = ?, epub_size = ?, epub_uploaded_at = datetime('now') WHERE id = ?`)
+    .bind(name, data.byteLength, id)
+    .run();
+  return c.json({ ok: true });
+});
+
+app.delete("/books/:id/epub", async (c) => {
+  requireAdmin(c);
+  const id = idParam(c);
+  await c.env.EPUBS.delete(epubKey(id));
+  await c.env.DB.prepare(`UPDATE books SET epub_name = NULL, epub_size = NULL, epub_uploaded_at = NULL WHERE id = ?`)
+    .bind(id)
+    .run();
+  return c.json({ ok: true });
+});
+
+async function epubResponse(env: Env, bookId: number, name: string) {
+  const file = await env.EPUBS.get(epubKey(bookId), "stream");
+  if (!file) throw new HTTPException(404, { message: "El epub ya no está disponible" });
+  return new Response(file, {
+    headers: {
+      "Content-Type": "application/epub+zip",
+      "Content-Disposition": contentDisposition(name),
+      "Cache-Control": "private, no-store",
+    },
+  });
+}
+
+/** Descargar el epub (cualquier miembro). */
+app.get("/books/:id/epub", async (c) => {
+  const id = idParam(c);
+  const book = await c.env.DB.prepare(`SELECT epub_name FROM books WHERE id = ?`).bind(id).first<{ epub_name: string | null }>();
+  if (!book?.epub_name) throw new HTTPException(404, { message: "Este libro no tiene epub" });
+  return epubResponse(c.env, id, book.epub_name);
+});
+
+/** Guardar (o borrar, con null) mi dirección de Kindle. */
+app.put("/me/kindle", async (c) => {
+  const user = requireUser(c);
+  const { email } = await c.req.json<{ email?: string | null }>();
+  const value = text(email, "dirección de Kindle", 200, false)?.toLowerCase() ?? null;
+  if (value && !KINDLE_ADDRESS.test(value)) bad("Tiene que ser tu dirección de Kindle, terminada en @kindle.com");
+  await c.env.DB.prepare(`UPDATE users SET kindle_email = ? WHERE id = ?`).bind(value, user.id).run();
+  return c.json({ ok: true });
+});
+
+/** Mandar el epub a mi Kindle por email. */
+app.post("/books/:id/kindle", async (c) => {
+  const user = requireUser(c);
+  const id = idParam(c);
+  if (!kindleEnabled(c.env)) throw new HTTPException(503, { message: "El envío al Kindle no está configurado" });
+  if (!user.kindle_email) bad("Primero guarda tu dirección de Kindle");
+  const book = await c.env.DB.prepare(`SELECT title, author, epub_name FROM books WHERE id = ?`)
+    .bind(id)
+    .first<{ title: string; author: string; epub_name: string | null }>();
+  if (!book) throw new HTTPException(404, { message: "Libro no encontrado" });
+  if (!book.epub_name) bad("Este libro todavía no tiene epub");
+
+  const sent = await c.env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM kindle_sends WHERE user_id = ? AND created_at > datetime('now', '-1 day')`,
+  )
+    .bind(user.id)
+    .first<{ n: number }>();
+  if ((sent?.n ?? 0) >= KINDLE_SENDS_PER_DAY) bad(`Máximo ${KINDLE_SENDS_PER_DAY} envíos al día. Prueba mañana.`);
+
+  const token = newSessionToken();
+  await c.env.DB.batch([
+    c.env.DB.prepare(`DELETE FROM kindle_sends WHERE created_at <= datetime('now', '-2 days')`),
+    c.env.DB.prepare(`INSERT INTO kindle_sends (token, book_id, user_id, kindle_email) VALUES (?, ?, ?, ?)`).bind(
+      token,
+      id,
+      user.id,
+      user.kindle_email,
+    ),
+  ]);
+  try {
+    await sendToKindle(c.env, {
+      to: user.kindle_email!,
+      fileUrl: `${new URL(c.req.url).origin}/api/kindle-file/${token}`,
+      filename: book.epub_name!,
+      title: book.title,
+      author: book.author,
+      senderName: user.name,
+    });
+  } catch (e) {
+    // Si no ha salido, no cuenta para el límite diario.
+    await c.env.DB.prepare(`DELETE FROM kindle_sends WHERE token = ?`).bind(token).run();
+    if (e instanceof KindleSendError) throw new HTTPException(e.status, { message: e.message });
+    throw e;
+  }
+  return c.json({ ok: true, to: user.kindle_email });
+});
+
+/** Enlace temporal desde el que Resend descarga el epub para adjuntarlo. Público pero imposible de adivinar. */
+app.get("/kindle-file/:token", async (c) => {
+  const row = await c.env.DB.prepare(
+    `SELECT s.book_id, b.epub_name FROM kindle_sends s JOIN books b ON b.id = s.book_id
+     WHERE s.token = ? AND s.created_at > datetime('now', ?)`,
+  )
+    .bind(c.req.param("token"), `-${KINDLE_LINK_MINUTES} minutes`)
+    .first<{ book_id: number; epub_name: string | null }>();
+  if (!row?.epub_name) throw new HTTPException(404, { message: "Enlace caducado" });
+  return epubResponse(c.env, row.book_id, row.epub_name);
 });
 
 // ---------- Rondas de votación ----------

@@ -8,6 +8,8 @@ export interface User {
   email: string;
   picture: string | null;
   isAdmin: boolean;
+  /** Dirección "Enviar a Kindle" (solo la ve su dueño). */
+  kindle_email: string | null;
 }
 
 export interface Book {
@@ -23,6 +25,9 @@ export interface Book {
   finished_at: string | null;
   avg_rating: number | null;
   rating_count: number;
+  /** Nombre y tamaño (bytes) del epub subido por un admin, si lo hay. */
+  epub_name: string | null;
+  epub_size: number | null;
 }
 
 export interface Comment {
@@ -64,6 +69,8 @@ export interface Round {
 export interface AppConfig {
   googleClientId: string;
   devLogin: boolean;
+  /** Remitente de los envíos al Kindle, o null si el envío no está configurado. */
+  kindleFrom: string | null;
 }
 
 export interface BookSuggestion {

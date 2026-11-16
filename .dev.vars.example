@@ -6,3 +6,6 @@ DEV_LOGIN=true
 
 # Opcional: clave gratuita de Google Books (sin ella se usa Open Library)
 GOOGLE_BOOKS_API_KEY=
+
+# Opcional: clave de Resend para "Enviar a mi Kindle" (en local Resend no puede descargar el epub de localhost)
+RESEND_API_KEY=
