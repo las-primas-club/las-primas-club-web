@@ -38,7 +38,7 @@ export function RoundResults({
             <li key={book.id} className={won ? "is-winner" : ""}>
               <Cover book={book} size="sm" />
               <div className="round-candidate-info">
-                {won && <span className="pill pill-accent">🏆 Ganador{round.kind === "movie" ? "a" : ""}</span>}
+                {won && <span className="pill pill-accent">Ganador{round.kind === "movie" ? "a" : ""}</span>}
                 <Link to={k.paths.item(book.id)}>
                   <strong>{book.title}</strong>
                 </Link>
@@ -54,11 +54,11 @@ export function RoundResults({
                     title={canRepropose ? undefined : "Ya tienes el máximo de propuestas"}
                     onClick={() => onRepropose(book.id)}
                   >
-                    ↺ volver a proponer
+                    volver a proponer
                   </button>
                 )}
                 {book.status === "proposed" && !book.archived_at && !won && (
-                  <span className="muted small">💡 Vuelve a estar propuest{round.kind === "movie" ? "a" : "o"}</span>
+                  <span className="muted small">Vuelve a estar propuest{round.kind === "movie" ? "a" : "o"}</span>
                 )}
               </div>
               <span className="round-votes">

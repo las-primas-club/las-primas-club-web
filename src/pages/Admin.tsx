@@ -164,7 +164,7 @@ function MembersTab() {
                   </span>
                 </div>
                 <div className="person-actions">
-                  {m.protected && <span className="pill" title="Definido en ADMIN_EMAILS">🔒 Emergencia</span>}
+                  {m.protected && <span className="pill" title="Definido en ADMIN_EMAILS">Emergencia</span>}
                   <select
                     value={m.role}
                     disabled={busy || locked}
@@ -215,7 +215,7 @@ function Avatar({ name, picture }: { name: string; picture: string | null }) {
 
 function statusLabel(b: Book) {
   const k = KINDS[b.kind];
-  return b.status === "current" ? k.nowLabel : b.status === "read" ? k.doneLabel : "💡 Propuesta";
+  return b.status === "current" ? k.nowLabel : b.status === "read" ? k.doneLabel : "Propuesta";
 }
 
 function BooksTab() {
@@ -232,8 +232,8 @@ function BooksTab() {
         {(
           [
             ["all", "Todo"],
-            ["book", "📖 Libros"],
-            ["movie", "🎬 Películas"],
+            ["book", "Libros"],
+            ["movie", "Películas"],
           ] as const
         ).map(([id, label]) => (
           <a
@@ -263,10 +263,10 @@ function BooksTab() {
                   <span className="pill">{statusLabel(b)}</span>
                   <Link to={KINDS[b.kind].paths.item(b.id)}>
                     <strong>
-                      {b.kind === "movie" ? "🎬 " : ""}
                       {b.title}
                     </strong>
                   </Link>
+                  {b.kind === "movie" && <span className="muted small"> · película</span>}
                   <span className="muted small">
                     {b.author}
                     {b.proposed_by_name && ` · propuesto por ${b.proposed_by_name}`}
@@ -336,9 +336,9 @@ function BooksTab() {
 function RoundsTab() {
   return (
     <>
-      <h2 className="admin-subtitle">📖 Libros</h2>
+      <h2 className="admin-subtitle">Libros</h2>
       <KindRounds kind="book" />
-      <h2 className="admin-subtitle">🎬 Cine</h2>
+      <h2 className="admin-subtitle">Cine</h2>
       <KindRounds kind="movie" />
     </>
   );
@@ -358,7 +358,7 @@ function KindRounds({ kind }: { kind: Kind }) {
       {(loadError || error) && <p className="error">{loadError ?? error}</p>}
       {open ? (
         <section className="panel">
-          <span className="pill pill-accent">🗳️ Ronda abierta</span>
+          <span className="pill pill-accent">Ronda abierta</span>
           <h3 style={{ marginTop: 12 }}>Ronda #{open.id}</h3>
           <p className="muted">
             Abierta el {formatDateTime(open.created_at)} · {open.candidates.length} candidatos · {open.voters} persona

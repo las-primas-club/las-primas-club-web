@@ -13,7 +13,7 @@ export function BookCard({ book }: { book: Book }) {
     <Link to={k.paths.item(book.id)} className="book-card">
       <div className="book-card-pills">
         {book.status === "current" && <span className="pill pill-accent">{k.nowLabel}</span>}
-        {top && <span className="pill">🏆 Favorit{book.kind === "movie" ? "a" : "o"}</span>}
+        {top && <span className="pill">Favorit{book.kind === "movie" ? "a" : "o"}</span>}
       </div>
       <div className="book-card-cover">
         <Cover book={book} />

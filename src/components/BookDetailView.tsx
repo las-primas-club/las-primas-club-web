@@ -92,9 +92,9 @@ export function BookDetailView({ book, onChange }: { book: BookDetail; onChange:
             <div className="pills">
               {book.status === "current" && <span className="pill pill-accent">{k.nowLabel}</span>}
               {book.status === "read" && <span className="pill">{k.doneLabel}</span>}
-              {book.status === "proposed" && <span className="pill">{book.archived_at ? "📜 Propuesta archivada" : "💡 Propuesta"}</span>}
+              {book.status === "proposed" && <span className="pill">{book.archived_at ? "Propuesta archivada" : "Propuesta"}</span>}
               {book.avg_rating != null && book.avg_rating >= 4.5 && (
-                <span className="pill">🏆 Favorit{movie ? "a" : "o"} del club</span>
+                <span className="pill">Favorit{movie ? "a" : "o"} del club</span>
               )}
             </div>
             <h1 className="book-title">
@@ -109,7 +109,7 @@ export function BookDetailView({ book, onChange }: { book: BookDetail; onChange:
             </p>
             {canEdit && (
               <button className="btn btn-ghost btn-sm edit-btn" onClick={() => setEditing(true)}>
-                ✏️ Editar{book.status === "proposed" && !user?.isAdmin ? " tu propuesta" : ""}
+                Editar{book.status === "proposed" && !user?.isAdmin ? " tu propuesta" : ""}
               </button>
             )}
 
@@ -356,7 +356,7 @@ function CommentItem({
           </form>
         ) : c.spoiler && !revealed ? (
           <button type="button" className="spoiler" onClick={() => setRevealed(true)}>
-            🙈 Spoiler · toca para verlo
+            Spoiler oculto · toca para verlo
           </button>
         ) : (
           <p>

@@ -18,7 +18,7 @@ function NowCard({ kind }: { kind: Kind }) {
   return (
     <article className="now-card">
       <p className="now-kind">
-        {k.emoji} {k.section}
+        {k.section}
       </p>
       {loading ? (
         <p className="muted">Cargando…</p>
@@ -42,13 +42,13 @@ function NowCard({ kind }: { kind: Kind }) {
       )}
       {item?.meet_at && !isPast(item.meet_at) && (
         <Link to={k.paths.now} className="now-meet">
-          🍽️ Quedamos el <strong>{formatLocalDateTime(item.meet_at)}</strong>
+          Quedamos el <strong>{formatLocalDateTime(item.meet_at)}</strong>
           {item.meet_place && ` · ${item.meet_place}`}
         </Link>
       )}
       {open ? (
         <Link to={k.paths.vote} className="now-vote">
-          🗳️ Votación abierta · {open.candidates.length} candidato{open.candidates.length === 1 ? "" : "s"}
+          Votación abierta · {open.candidates.length} candidato{open.candidates.length === 1 ? "" : "s"}
           {open.closes_at && !isPast(open.closes_at) && ` · hasta el ${formatLocalDateTime(open.closes_at)}`}
           <span>Votar →</span>
         </Link>
@@ -67,7 +67,7 @@ export function Home() {
       <section className="hero full-bleed">
         <div className="container hero-inner">
           <div className="hero-text">
-            <span className="pill pill-light">👋 Bienvenidos</span>
+            <span className="pill pill-light">Bienvenidos</span>
             <h1>{CLUB_NAME}</h1>
             <p className="hero-sub">{INTRO.tagline}</p>
             <p className="hero-about">{INTRO.about}</p>
@@ -98,11 +98,11 @@ export function Home() {
           {INTRO.howItWorks.map((s, i) => (
             <li key={s.title} className="flow-step">
               <span className="flow-n" aria-hidden>
-                {s.emoji}
+                {i + 1}
               </span>
               <div>
                 <h3>
-                  <span className="flow-num">{i + 1}.</span> {s.title}
+                  {s.title}
                 </h3>
                 <p>{s.text}</p>
               </div>

@@ -18,7 +18,7 @@ function Ranking({ title, items, empty }: { title: string; items: StatsItem[]; e
           {items.map((b) => (
             <li key={b.id}>
               <span>
-                <span aria-hidden>{KINDS[b.kind].emoji}</span> <Link to={KINDS[b.kind].paths.item(b.id)}>{b.title}</Link>
+                <Link to={KINDS[b.kind].paths.item(b.id)}>{b.title}</Link>
               </span>
               <span className="stats-score">
                 <Stars value={b.avg_rating} size="sm" />
@@ -48,10 +48,10 @@ export function StatsPage() {
   const maxYear = Math.max(1, ...data.years.map((y) => y.books + y.movies));
 
   const awards = [
-    topProposer?.wins ? { emoji: "🎯", label: "Mejor ojo proponiendo", name: topProposer.name, detail: `${topProposer.wins} propuesta${topProposer.wins === 1 ? "" : "s"} elegida${topProposer.wins === 1 ? "" : "s"}` } : null,
-    toughest ? { emoji: "🧐", label: "Crítica más dura", name: toughest.name, detail: `media de ${formatScore(toughest.avg_given!, true)}` } : null,
-    kindest && kindest !== toughest ? { emoji: "🥰", label: "Le gusta todo", name: kindest.name, detail: `media de ${formatScore(kindest.avg_given!, true)}` } : null,
-    chattiest?.comments ? { emoji: "💬", label: "Quien más comenta", name: chattiest.name, detail: `${chattiest.comments} comentario${chattiest.comments === 1 ? "" : "s"}` } : null,
+    topProposer?.wins ? { label: "Mejor ojo proponiendo", name: topProposer.name, detail: `${topProposer.wins} propuesta${topProposer.wins === 1 ? "" : "s"} elegida${topProposer.wins === 1 ? "" : "s"}` } : null,
+    toughest ? { label: "Crítica más dura", name: toughest.name, detail: `media de ${formatScore(toughest.avg_given!, true)}` } : null,
+    kindest && kindest !== toughest ? { label: "Le gusta todo", name: kindest.name, detail: `media de ${formatScore(kindest.avg_given!, true)}` } : null,
+    chattiest?.comments ? { label: "Quien más comenta", name: chattiest.name, detail: `${chattiest.comments} comentario${chattiest.comments === 1 ? "" : "s"}` } : null,
   ].filter((a) => a !== null);
 
   return (
@@ -61,14 +61,13 @@ export function StatsPage() {
 
       <ul className="stats-totals">
         {[
-          ["📖", totals.books, totals.books === 1 ? "libro leído" : "libros leídos"],
-          ["🎬", totals.movies, totals.movies === 1 ? "película vista" : "películas vistas"],
-          ["🗳️", totals.rounds, totals.rounds === 1 ? "votación" : "votaciones"],
-          ["⭐", totals.ratings, totals.ratings === 1 ? "puntuación" : "puntuaciones"],
-          ["💬", totals.comments, totals.comments === 1 ? "comentario" : "comentarios"],
-        ].map(([emoji, n, label]) => (
+          [totals.books, totals.books === 1 ? "libro leído" : "libros leídos"],
+          [totals.movies, totals.movies === 1 ? "película vista" : "películas vistas"],
+          [totals.rounds, totals.rounds === 1 ? "votación" : "votaciones"],
+          [totals.ratings, totals.ratings === 1 ? "puntuación" : "puntuaciones"],
+          [totals.comments, totals.comments === 1 ? "comentario" : "comentarios"],
+        ].map(([n, label]) => (
           <li key={label}>
-            <span aria-hidden>{emoji}</span>
             <strong>{n}</strong>
             <span className="muted small">{label}</span>
           </li>
@@ -79,9 +78,6 @@ export function StatsPage() {
         <ul className="stats-awards">
           {awards.map((a) => (
             <li key={a.label}>
-              <span className="stats-award-emoji" aria-hidden>
-                {a.emoji}
-              </span>
               <span className="muted small">{a.label}</span>
               <strong>{a.name}</strong>
               <span className="muted small">{a.detail}</span>
@@ -91,13 +87,13 @@ export function StatsPage() {
       )}
 
       <div className="stats-grid">
-        <Ranking title="🏆 Lo mejor valorado" items={data.best} empty="Todavía no hay puntuaciones." />
-        <Ranking title="🍅 Lo que menos gustó" items={data.worst} />
+        <Ranking title="Lo mejor valorado" items={data.best} empty="Todavía no hay puntuaciones." />
+        <Ranking title="Lo que menos gustó" items={data.worst} />
       </div>
 
       {data.years.length > 0 && (
         <section className="panel stats-panel">
-          <h2>📅 Año a año</h2>
+          <h2>Año a año</h2>
           <ul className="stats-years">
             {data.years.map((y) => (
               <li key={y.year}>
@@ -116,7 +112,7 @@ export function StatsPage() {
 
       {members.length > 0 && (
         <section className="panel stats-panel">
-          <h2>👥 Cada uno</h2>
+          <h2>Cada uno</h2>
           <div className="table-scroll">
             <table className="stats-table">
               <thead>

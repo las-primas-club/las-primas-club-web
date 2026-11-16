@@ -3,6 +3,7 @@ import type { BookDetail } from "../../shared/types";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { useConfirm } from "./Dialog";
+import { BookIcon } from "./Icons";
 
 const MAX_MB = 25;
 
@@ -68,7 +69,7 @@ export function EbookPanel({ book, onChange }: { book: BookDetail; onChange: () 
   const send = () =>
     run(async () => {
       const { to } = await api.sendToKindle(book.id);
-      return `📬 Enviado a ${to}. Aparecerá en tu Kindle en unos minutos.`;
+      return `Enviado a ${to}. Aparecerá en tu Kindle en unos minutos.`;
     });
 
   const showKindleForm = kindleFrom && (!user.kindle_email || editingKindle);
@@ -80,7 +81,9 @@ export function EbookPanel({ book, onChange }: { book: BookDetail; onChange: () 
       {book.epub_name ? (
         <div className="ebook-box">
           <div className="ebook-file">
-            <span className="ebook-icon" aria-hidden>📗</span>
+            <span className="ebook-icon">
+              <BookIcon />
+            </span>
             <div>
               <strong>{book.epub_name}</strong>
               <span className="muted small"> · {formatSize(book.epub_size)}</span>

@@ -669,7 +669,7 @@ app.put("/books/:id/meetup", async (c) => {
   if (meetAt && meetAt !== book.meet_at) {
     const when = `${Number(meetAt.slice(8, 10))} de ${MONTHS[Number(meetAt.slice(5, 7)) - 1]} a las ${meetAt.slice(11)}`;
     announce(c, {
-      title: "🍽️ ¡Hay quedada!",
+      title: "¡Hay quedada!",
       body: `${book.title}: ${when}${place ? `, ${place}` : ""}. Di si vienes.`,
       url: book.kind === "movie" ? `/peliculas/${id}` : `/libros/${id}`,
     });
@@ -964,7 +964,7 @@ app.post("/rounds", async (c) => {
     .bind(round!.id, kind)
     .run();
   announce(c, {
-    title: "🗳️ Votación abierta",
+    title: "Votación abierta",
     body: kind === "movie" ? "Ya puedes votar la próxima película." : "Ya puedes votar el próximo libro.",
     url: kind === "movie" ? "/cine/votacion" : "/votacion",
   });
@@ -1041,7 +1041,7 @@ app.post("/rounds/:id/close", async (c) => {
     ).bind(round.id),
   ]);
   announce(c, {
-    title: round.kind === "movie" ? "🏆 Ya hay película" : "🏆 Ya hay libro",
+    title: round.kind === "movie" ? "Ya hay película" : "Ya hay libro",
     body: `Ha ganado "${winner.book.title}" con ${winner.votes} voto${winner.votes === 1 ? "" : "s"}.`,
     url: round.kind === "movie" ? "/cine" : "/actual",
   });

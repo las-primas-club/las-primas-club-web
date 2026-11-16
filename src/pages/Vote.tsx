@@ -91,19 +91,19 @@ export function Vote({ kind }: { kind: Kind }) {
             cambiarlos mientras la ronda siga abierta.
           </p>
           <p className="muted small">
-            🔒 Los votos son anónimos hasta que se cierre la ronda; entonces se verá qué votó cada uno. ·{" "}
+            Los votos son anónimos hasta que se cierre la ronda; entonces se verá qué votó cada uno. ·{" "}
             {open.voters} persona{open.voters === 1 ? "" : "s"} ha{open.voters === 1 ? "" : "n"} votado.
           </p>
           {open.closes_at && (
             <p className={`deadline ${isPast(open.closes_at) ? "is-past" : ""}`}>
-              ⏰ {isPast(open.closes_at) ? "El plazo para votar terminó el" : "Se cierra el"}{" "}
+              {isPast(open.closes_at) ? "El plazo para votar terminó el" : "Se cierra el"}{" "}
               <strong>{formatLocalDateTime(open.closes_at)}</strong>
             </p>
           )}
           {open.pending_voters && open.voters > 0 && (
             <p className="muted small">
               {open.pending_voters.length === 0
-                ? "✅ Ya ha votado todo el mundo."
+                ? "Ya ha votado todo el mundo."
                 : `Falta${open.pending_voters.length === 1 ? "" : "n"} por votar: ${open.pending_voters.join(", ")}.`}
             </p>
           )}
@@ -124,7 +124,7 @@ export function Vote({ kind }: { kind: Kind }) {
                 <li key={book.id} className={`candidate ${mine ? "is-mine" : ""}`}>
                   <Cover book={book} size="sm" />
                   <div className="candidate-info">
-                    {mine > 0 && <span className="pill pill-accent">✔ {mine === 2 ? "Tus dos votos" : "Tu voto"}</span>}
+                    {mine > 0 && <span className="pill pill-accent">{mine === 2 ? "Tus dos votos" : "Tu voto"}</span>}
                     <h3>
                       <Link to={k.paths.item(book.id)}>{book.title}</Link>
                       {book.year && <span className="muted year"> ({book.year})</span>}
@@ -327,7 +327,7 @@ export function Vote({ kind }: { kind: Kind }) {
         </section>
       )}
       <p className="history-link">
-        <Link to={k.paths.rounds}>📜 Ver todas las rondas anteriores ›</Link>
+        <Link to={k.paths.rounds}>Ver todas las rondas anteriores ›</Link>
       </p>
 
       <section className="detail-section">

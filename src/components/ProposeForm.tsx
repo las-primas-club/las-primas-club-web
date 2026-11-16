@@ -3,6 +3,7 @@ import { api } from "../api";
 import type { BookSuggestion, Kind } from "../../shared/types";
 import { useAuth } from "../auth";
 import { KINDS } from "../kinds";
+import { BookIcon, FilmIcon } from "./Icons";
 
 const EMPTY = { title: "", author: "", description: "", cover_url: "", year: "", source: "" };
 
@@ -102,7 +103,7 @@ export function ProposeForm({ kind, onDone }: { kind: Kind; onDone: () => unknow
           {results.map((s) => (
             <li key={s.key}>
               <button type="button" onClick={() => pick(s)}>
-                {s.cover_url ? <img src={s.cover_url} alt="" loading="lazy" /> : <span className="no-cover">{kind === "movie" ? "🎬" : "📕"}</span>}
+                {s.cover_url ? <img src={s.cover_url} alt="" loading="lazy" /> : <span className="no-cover">{kind === "movie" ? <FilmIcon /> : <BookIcon />}</span>}
                 <span className="search-text">
                   <strong>{s.title}</strong>
                   <span className="muted small">

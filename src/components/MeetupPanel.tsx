@@ -29,7 +29,7 @@ export function MeetupPanel({ book, run, busy }: { book: BookDetail; run: (fn: (
       {book.meet_at ? (
         <div className="meetup">
           <p className="meetup-when">
-            <span aria-hidden>🍽️</span> <strong>{formatLocalDateTime(book.meet_at)}</strong>
+            <strong>{formatLocalDateTime(book.meet_at)}</strong>
             {book.meet_place && <span className="muted"> · {book.meet_place}</span>}
           </p>
           {!past && (

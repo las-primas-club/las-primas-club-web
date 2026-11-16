@@ -4,7 +4,6 @@ import type { Kind } from "../shared/types";
 export interface KindInfo {
   kind: Kind;
   section: string; // nombre de la sección en la navegación
-  emoji: string;
   /** "el libro" / "la película" */
   the: string;
   noun: string;
@@ -38,16 +37,15 @@ export const KINDS: Record<Kind, KindInfo> = {
   book: {
     kind: "book",
     section: "Libros",
-    emoji: "📖",
     the: "el libro",
     noun: "libro",
     nounPlural: "libros",
     creatorLabel: "Autor/a",
     byPrefix: "De ",
     proposedBy: "propuesto por",
-    nowLabel: "📖 Leyendo ahora",
+    nowLabel: "Leyendo ahora",
     nowShort: "Leyendo",
-    doneLabel: "✅ Leído",
+    doneLabel: "Leído",
     doneTitle: "Libros leídos",
     doneShort: "Leídos",
     doneSub: "Todo lo que hemos leído, con la media de nuestras puntuaciones.",
@@ -66,16 +64,15 @@ export const KINDS: Record<Kind, KindInfo> = {
   movie: {
     kind: "movie",
     section: "Cine",
-    emoji: "🎬",
     the: "la película",
     noun: "película",
     nounPlural: "películas",
     creatorLabel: "Dirección",
     byPrefix: "Dirigida por ",
     proposedBy: "propuesta por",
-    nowLabel: "🎬 Toca ver",
+    nowLabel: "Toca ver",
     nowShort: "Toca ver",
-    doneLabel: "✅ Vista",
+    doneLabel: "Vista",
     doneTitle: "Películas vistas",
     doneShort: "Vistas",
     doneSub: "Todas las películas que hemos visto, con la media de nuestras puntuaciones.",

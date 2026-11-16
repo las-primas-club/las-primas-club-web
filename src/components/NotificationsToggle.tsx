@@ -33,7 +33,7 @@ export function NotificationsToggle() {
   // En iPhone los avisos solo funcionan con la web añadida a la pantalla de inicio.
   if (!supported) {
     return isIOS() && !isStandalone() ? (
-      <p className="notify muted small">🔔 Para recibir avisos en el iPhone, añade primero la web a la pantalla de inicio.</p>
+      <p className="notify muted small">Para recibir avisos en el iPhone, añade primero la web a la pantalla de inicio.</p>
     ) : null;
   }
 
@@ -65,7 +65,7 @@ export function NotificationsToggle() {
   return (
     <div className="notify">
       <span>
-        🔔 <strong>Avisos</strong>{" "}
+        <strong>Avisos</strong>{" "}
         <span className="muted small">
           {on ? "Te avisaremos en este dispositivo cuando se abra una votación, haya ganador o se ponga la quedada." : "Entérate cuando se abra una votación, haya ganador o se ponga la quedada."}
         </span>
