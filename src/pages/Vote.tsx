@@ -82,8 +82,8 @@ export function Vote({ kind }: { kind: Kind }) {
       {open ? (
         <section>
           <p className="lead">
-            {k.voteLead} Tienes {MAX_VOTES} votos: repártelos o dale los dos al mismo. Puedes cambiarlos mientras la ronda
-            siga abierta.
+            {k.voteLead} Tienes {MAX_VOTES} votos: repártelos o dale los dos al mismo (a tus propias propuestas no). Puedes
+            cambiarlos mientras la ronda siga abierta.
           </p>
           <p className="muted small">
             🔒 Los votos son anónimos hasta que se cierre la ronda; entonces se verá qué votó cada uno. ·{" "}
@@ -113,7 +113,7 @@ export function Vote({ kind }: { kind: Kind }) {
                     </h3>
                     <p className="muted">
                       {book.author}
-                      {book.proposed_by_name && ` · propuesto por ${book.proposed_by_name}`}
+                      {book.proposed_by_name && ` · ${k.proposedBy} ${book.proposed_by_name}`}
                     </p>
                     {book.description && <Synopsis text={book.description} lines={3} className="small" />}
                     <div className="bar" aria-label={`${votes} votos`}>

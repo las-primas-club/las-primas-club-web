@@ -60,7 +60,7 @@ export function BookDetailView({ book, onChange }: { book: BookDetail; onChange:
           <div className="pills">
             {book.status === "current" && <span className="pill pill-accent">{k.nowLabel}</span>}
             {book.status === "read" && <span className="pill">{k.doneLabel}</span>}
-            {book.status === "proposed" && <span className="pill">💡 Propuesta</span>}
+            {book.status === "proposed" && <span className="pill">{book.archived_at ? "📜 Propuesta archivada" : "💡 Propuesta"}</span>}
             {book.avg_rating != null && book.avg_rating >= 4.5 && (
               <span className="pill">🏆 Favorit{movie ? "a" : "o"} del club</span>
             )}
@@ -73,7 +73,7 @@ export function BookDetailView({ book, onChange }: { book: BookDetail; onChange:
           <p className="book-meta">
             {k.byPrefix}
             <strong>{book.author}</strong>
-            {book.proposed_by_name && <span className="muted"> · propuesto por {book.proposed_by_name}</span>}
+            {book.proposed_by_name && <span className="muted"> · {k.proposedBy} {book.proposed_by_name}</span>}
           </p>
 
           {book.status !== "proposed" && (
@@ -124,8 +124,8 @@ export function BookDetailView({ book, onChange }: { book: BookDetail; onChange:
 
               {book.ratings.length > 0 && (
                 <ul className="ratings-list">
-                  {book.ratings.map((r) => (
-                    <li key={r.user_name}>
+                  {book.ratings.map((r, i) => (
+                    <li key={i}>
                       <span>{r.user_name}</span>
                       <Stars value={r.score} size="sm" />
                     </li>

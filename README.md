@@ -140,7 +140,7 @@ No actives también *Workers Builds* en Cloudflare, o se desplegaría dos veces.
 - **Proponer**: cada miembro puede tener hasta 2 propuestas pendientes por sección (libros y cine por separado).
   Si hay una ronda abierta, entran como candidatas; si no, entran en la siguiente. Para proponer otra, quita antes una tuya.
 - **Votar**: 2 votos por persona y ronda; se pueden repartir o dar los dos al mismo candidato, y cambiar mientras siga
-  abierta. Son anónimos durante la ronda (solo se ven los totales); al cerrarla se ve qué votó cada uno.
+  abierta. Nadie puede votar sus propias propuestas. Son anónimos durante la ronda (solo se ven los totales); al cerrarla se ve qué votó cada uno.
 - **Histórico de rondas** (*Votación → Ver todas las rondas anteriores*): cada ronda cerrada con sus candidatos, votos y
   papeletas. Lo que pierde una votación se archiva ahí y cualquiera puede volver a proponerlo (cuenta como propuesta suya).
 - **Admin** (panel en `/admin`): gestiona miembros, edita o borra libros y abre, cierra o cancela rondas. Abre la ronda y la cierra (el más votado pasa a ser el libro en curso y el anterior se marca como leído).

@@ -13,6 +13,8 @@ export interface KindInfo {
   creatorLabel: string;
   /** Antes del nombre: "De " Gabriel García Márquez / "Dirigida por " Denis Villeneuve */
   byPrefix: string;
+  /** "propuesto por" / "propuesta por" */
+  proposedBy: string;
   nowLabel: string; // pill de "en curso"
   nowShort: string; // pestaña
   doneLabel: string; // pill de terminado
@@ -42,6 +44,7 @@ export const KINDS: Record<Kind, KindInfo> = {
     nounPlural: "libros",
     creatorLabel: "Autor/a",
     byPrefix: "De ",
+    proposedBy: "propuesto por",
     nowLabel: "📖 Leyendo ahora",
     nowShort: "Leyendo",
     doneLabel: "✅ Leído",
@@ -69,6 +72,7 @@ export const KINDS: Record<Kind, KindInfo> = {
     nounPlural: "películas",
     creatorLabel: "Dirección",
     byPrefix: "Dirigida por ",
+    proposedBy: "propuesta por",
     nowLabel: "🎬 Toca ver",
     nowShort: "Toca ver",
     doneLabel: "✅ Vista",

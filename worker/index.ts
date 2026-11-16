@@ -1,6 +1,7 @@
 import { Hono, type Context } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { HTTPException } from "hono/http-exception";
+import { secureHeaders } from "hono/secure-headers";
 import {
   MAX_PROPOSALS,
   MAX_VOTES,
@@ -36,8 +37,38 @@ type Ctx = Context<AppEnv>;
 
 const SESSION_COOKIE = "lpc_session";
 const SESSION_DAYS = 60;
+const MAX_ACCESS_REQUESTS = 200;
 
 const app = new Hono<AppEnv>().basePath("/api");
+
+// ---------- Seguridad ----------
+
+// Cabeceras de seguridad en todas las respuestas de la API. Nada de la API se guarda en caché: son datos privados.
+app.use(
+  "*",
+  secureHeaders({
+    contentSecurityPolicy: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] },
+    strictTransportSecurity: "max-age=31536000",
+    xFrameOptions: "DENY",
+  }),
+);
+app.use("*", async (c, next) => {
+  await next();
+  if (!c.res.headers.has("Cache-Control")) c.header("Cache-Control", "no-store");
+});
+
+// Defensa contra CSRF: las peticiones que cambian algo solo se aceptan desde la propia web.
+// La cookie ya es SameSite=Lax; esto cubre además otros subdominios del mismo dominio.
+// Excepción: el login por redirección, que llega desde Google (lleva su propio token anti-CSRF).
+app.use("*", async (c, next) => {
+  const safe = c.req.method === "GET" || c.req.method === "HEAD" || c.req.method === "OPTIONS";
+  if (!safe && c.req.path !== "/api/auth/google/redirect") {
+    const origin = c.req.header("origin");
+    if (origin && origin !== new URL(c.req.url).origin) return c.json({ error: "Origen no permitido" }, 403);
+    if (!origin && c.req.header("sec-fetch-site") === "cross-site") return c.json({ error: "Origen no permitido" }, 403);
+  }
+  await next();
+});
 
 // ---------- Sesión ----------
 
@@ -115,6 +146,13 @@ function kindOf(value: unknown): Kind {
   bad("Tipo no válido");
 }
 
+/** Cuerpo JSON de la petición. Si no es un objeto JSON válido, 400 (en vez de un error interno). */
+async function jsonBody<T extends object>(c: Ctx): Promise<T> {
+  const body: unknown = await c.req.json().catch(() => null);
+  if (!body || typeof body !== "object" || Array.isArray(body)) bad("Petición no válida");
+  return body as T;
+}
+
 function idParam(c: Ctx, name = "id"): number {
   const id = Number(c.req.param(name));
   if (!Number.isInteger(id) || id <= 0) bad("Id no válido");
@@ -143,11 +181,14 @@ async function loginAs(c: Ctx, profile: GoogleProfile): Promise<void> {
   const member = await c.env.DB.prepare(`SELECT 1 FROM members WHERE email = ?`).bind(profile.email).first();
   if (!member) {
     // No es miembro: guardamos la solicitud para que un admin la acepte o la rechace.
+    // Con tope: cualquiera con cuenta de Google puede llegar hasta aquí y no queremos que llenen la tabla.
     await c.env.DB.prepare(
-      `INSERT INTO access_requests (email, name, picture) VALUES (?, ?, ?)
+      `INSERT INTO access_requests (email, name, picture)
+       SELECT ?1, ?2, ?3
+       WHERE (SELECT COUNT(*) FROM access_requests) < ?4 OR EXISTS (SELECT 1 FROM access_requests WHERE email = ?1)
        ON CONFLICT (email) DO UPDATE SET name = excluded.name, picture = excluded.picture, requested_at = datetime('now')`,
     )
-      .bind(profile.email, profile.name, profile.picture)
+      .bind(profile.email, profile.name.slice(0, 100), profile.picture, MAX_ACCESS_REQUESTS)
       .run();
     throw new HTTPException(403, {
       message: "Todavía no eres miembro del club. Tu solicitud ha quedado registrada: en cuanto un admin la acepte, podrás entrar.",
@@ -159,7 +200,7 @@ async function loginAs(c: Ctx, profile: GoogleProfile): Promise<void> {
        last_login_at = datetime('now')
      RETURNING id`,
   )
-    .bind(profile.sub, profile.email, profile.name, profile.picture)
+    .bind(profile.sub, profile.email, profile.name.slice(0, 100), profile.picture)
     .first<{ id: number }>();
   const token = newSessionToken();
   await c.env.DB.batch([
@@ -193,7 +234,7 @@ app.get("/config", (c) =>
 app.get("/me", (c) => c.json(c.get("user")));
 
 app.post("/auth/google", async (c) => {
-  const { credential } = await c.req.json<{ credential?: string }>();
+  const { credential } = await jsonBody<{ credential?: string }>(c);
   if (!credential) bad("Falta el token de Google");
   if (!c.env.GOOGLE_CLIENT_ID) throw new HTTPException(500, { message: "GOOGLE_CLIENT_ID no configurado" });
   let profile: GoogleProfile;
@@ -209,15 +250,16 @@ app.post("/auth/google", async (c) => {
 // Login por redirección (lo usa la app instalada, donde la ventana emergente de Google no funciona bien).
 // Google envía aquí un formulario POST con el token y redirigimos a la web con la sesión ya creada.
 app.post("/auth/google/redirect", async (c) => {
-  const back = (error?: string) => c.redirect(error ? `/?login_error=${encodeURIComponent(error)}` : "/", 303);
+  // El error viaja como código (no como texto libre) para que nadie pueda fabricar un enlace con un mensaje falso.
+  const back = (error?: "failed" | "not_member") => c.redirect(error ? `/?login_error=${error}` : "/", 303);
   const form = await c.req.parseBody();
   const credential = typeof form.credential === "string" ? form.credential : "";
   const csrfCookie = getCookie(c, "g_csrf_token");
-  if (!credential || (csrfCookie && csrfCookie !== form.g_csrf_token)) return back("No se pudo iniciar sesión. Inténtalo de nuevo.");
+  if (!credential || (csrfCookie && csrfCookie !== form.g_csrf_token)) return back("failed");
   try {
     await loginAs(c, await verifyGoogleToken(credential, c.env.GOOGLE_CLIENT_ID));
   } catch (e) {
-    return back(e instanceof HTTPException ? e.message : "No se pudo verificar el login de Google");
+    return back(e instanceof HTTPException && e.status === 403 ? "not_member" : "failed");
   }
   return back();
 });
@@ -225,7 +267,7 @@ app.post("/auth/google/redirect", async (c) => {
 // Login sin Google, solo para desarrollo local (DEV_LOGIN=true en .dev.vars)
 app.post("/auth/dev", async (c) => {
   if (!devLoginEnabled(c)) throw new HTTPException(404);
-  const body = await c.req.json<{ name?: string; email?: string }>();
+  const body = await jsonBody<{ name?: string; email?: string }>(c);
   const email = text(body.email, "email", 200)!.toLowerCase();
   const name = text(body.name, "nombre", 100, false) ?? email.split("@")[0];
   await loginAs(c, { sub: `dev:${email}`, email, name, picture: null });
@@ -275,6 +317,8 @@ const BOOK_SELECT = `
   LEFT JOIN users p ON p.id = b.proposed_by
   LEFT JOIN ratings r ON r.book_id = b.id`;
 
+const BOOK_STATUSES = new Set(["proposed", "current", "read"]);
+
 /** Lista de libros o películas (?kind=movie). Con ?kind=all, todo (lo usa el panel de admin). */
 app.get("/books", async (c) => {
   const status = c.req.query("status");
@@ -286,6 +330,7 @@ app.get("/books", async (c) => {
     params.push(kindOf(kindParam));
   }
   if (status) {
+    if (!BOOK_STATUSES.has(status)) bad("Estado no válido");
     conditions.push("b.status = ?");
     params.push(status);
     // "proposed" son las pendientes; las archivadas están en el histórico de rondas.
@@ -373,7 +418,7 @@ async function joinOpenRound(c: Ctx, bookId: number, kind: Kind) {
 /** Proponer un libro o una película (máximo MAX_PROPOSALS pendientes por persona y tipo). Si hay una ronda abierta de su tipo, entra directamente como candidato. */
 app.post("/books", async (c) => {
   const user = requireUser(c);
-  const body = await c.req.json<Record<string, unknown>>();
+  const body = await jsonBody<Record<string, unknown>>(c);
   const kind = kindOf(body.kind);
   const { title, author, description, cover, year } = bookFields(body);
 
@@ -432,7 +477,7 @@ app.delete("/books/:id", async (c) => {
 app.patch("/books/:id", async (c) => {
   requireAdmin(c);
   const id = idParam(c);
-  const { title, author, description, cover, year } = bookFields(await c.req.json<Record<string, unknown>>());
+  const { title, author, description, cover, year } = bookFields(await jsonBody<Record<string, unknown>>(c));
   const res = await c.env.DB.prepare(
     `UPDATE books SET title = ?, author = ?, description = ?, cover_url = ?, year = ? WHERE id = ?`,
   )
@@ -446,14 +491,25 @@ app.patch("/books/:id", async (c) => {
 app.post("/books/:id/start", async (c) => {
   requireAdmin(c);
   const id = idParam(c);
-  const book = await c.env.DB.prepare(`SELECT kind FROM books WHERE id = ?`).bind(id).first<{ kind: Kind }>();
+  const book = await c.env.DB.prepare(`SELECT kind, status FROM books WHERE id = ?`)
+    .bind(id)
+    .first<{ kind: Kind; status: string }>();
   if (!book) throw new HTTPException(404, { message: "No encontrado" });
+  if (book.status === "current") bad("Ya está en curso");
   await c.env.DB.batch([
     c.env.DB.prepare(
       `UPDATE books SET status = 'read', finished_at = datetime('now') WHERE status = 'current' AND kind = ?`,
     ).bind(book.kind),
-    c.env.DB.prepare(`UPDATE books SET status = 'current', started_at = datetime('now') WHERE id = ?`).bind(id),
-    c.env.DB.prepare(`DELETE FROM round_candidates WHERE book_id = ?`).bind(id),
+    c.env.DB.prepare(
+      `UPDATE books SET status = 'current', started_at = datetime('now'), finished_at = NULL, archived_at = NULL WHERE id = ?`,
+    ).bind(id),
+    // Sale de la ronda abierta si era candidato; en las rondas cerradas se queda como parte del histórico.
+    c.env.DB.prepare(
+      `DELETE FROM votes WHERE book_id = ? AND round_id IN (SELECT id FROM rounds WHERE status = 'open')`,
+    ).bind(id),
+    c.env.DB.prepare(
+      `DELETE FROM round_candidates WHERE book_id = ? AND round_id IN (SELECT id FROM rounds WHERE status = 'open')`,
+    ).bind(id),
   ]);
   return c.json({ ok: true });
 });
@@ -472,7 +528,7 @@ app.post("/books/:id/finish", async (c) => {
 app.put("/books/:id/rating", async (c) => {
   const user = requireUser(c);
   const id = idParam(c);
-  const { score } = await c.req.json<{ score?: number }>();
+  const { score } = await jsonBody<{ score?: number }>(c);
   // De 0,5 a 5 en pasos de media estrella
   if (typeof score !== "number" || !Number.isInteger(score * 2) || score < 0.5 || score > 5) {
     bad("La puntuación debe ir de 0,5 a 5, en medias estrellas");
@@ -499,7 +555,7 @@ app.delete("/books/:id/rating", async (c) => {
 app.post("/books/:id/comments", async (c) => {
   const user = requireUser(c);
   const id = idParam(c);
-  const body = text((await c.req.json<{ body?: string }>()).body, "comentario", 4000);
+  const body = text((await jsonBody<{ body?: string }>(c)).body, "comentario", 4000);
   const exists = await c.env.DB.prepare(`SELECT 1 FROM books WHERE id = ?`).bind(id).first();
   if (!exists) throw new HTTPException(404, { message: "Libro no encontrado" });
   await c.env.DB.prepare(`INSERT INTO comments (book_id, user_id, body) VALUES (?, ?, ?)`)
@@ -512,7 +568,7 @@ app.post("/books/:id/comments", async (c) => {
 app.patch("/comments/:id", async (c) => {
   const user = requireUser(c);
   const id = idParam(c);
-  const body = text((await c.req.json<{ body?: string }>()).body, "comentario", 4000);
+  const body = text((await jsonBody<{ body?: string }>(c)).body, "comentario", 4000);
   const comment = await c.env.DB.prepare(`SELECT user_id FROM comments WHERE id = ?`)
     .bind(id)
     .first<{ user_id: number }>();
@@ -602,7 +658,7 @@ app.get("/books/:id/epub", async (c) => {
 /** Guardar (o borrar, con null) mi dirección de Kindle. */
 app.put("/me/kindle", async (c) => {
   const user = requireUser(c);
-  const { email } = await c.req.json<{ email?: string | null }>();
+  const { email } = await jsonBody<{ email?: string | null }>(c);
   const value = text(email, "dirección de Kindle", 200, false)?.toLowerCase() ?? null;
   if (value && !KINDLE_ADDRESS.test(value)) bad("Tiene que ser tu dirección de Kindle, terminada en @kindle.com");
   await c.env.DB.prepare(`UPDATE users SET kindle_email = ? WHERE id = ?`).bind(value, user.id).run();
@@ -732,7 +788,7 @@ app.get("/rounds", async (c) => {
 /** Admin: abrir una ronda nueva. Entran todas las propuestas pendientes. */
 app.post("/rounds", async (c) => {
   requireAdmin(c);
-  const kind = kindOf((await c.req.json<{ kind?: string }>().catch(() => ({}) as { kind?: string })).kind);
+  const kind = kindOf((await jsonBody<{ kind?: string }>(c).catch(() => ({}) as { kind?: string })).kind);
   const open = await c.env.DB.prepare(`SELECT 1 FROM rounds WHERE status = 'open' AND kind = ?`).bind(kind).first();
   if (open) bad("Ya hay una ronda abierta");
   const round = await c.env.DB.prepare(`INSERT INTO rounds (kind) VALUES (?) RETURNING id`).bind(kind).first<{ id: number }>();
@@ -749,7 +805,7 @@ app.post("/rounds", async (c) => {
 app.put("/rounds/:id/votes", async (c) => {
   const user = requireUser(c);
   const roundId = idParam(c);
-  const { bookIds } = await c.req.json<{ bookIds?: unknown }>();
+  const { bookIds } = await jsonBody<{ bookIds?: unknown }>(c);
   if (!Array.isArray(bookIds) || bookIds.length > MAX_VOTES || !bookIds.every((id) => Number.isInteger(id))) {
     bad(`Tienes ${MAX_VOTES} votos como máximo`);
   }
@@ -842,7 +898,7 @@ app.get("/admin/members", async (c) => {
 
 app.post("/admin/members", async (c) => {
   const admin = requireAdmin(c);
-  const body = await c.req.json<{ email?: string; role?: string }>();
+  const body = await jsonBody<{ email?: string; role?: string }>(c);
   const email = text(body.email, "email", 200)!.toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) bad("Email no válido");
   const role = body.role ?? "member";
@@ -859,7 +915,7 @@ app.post("/admin/members", async (c) => {
 app.patch("/admin/members/:email", async (c) => {
   const admin = requireAdmin(c);
   const email = emailParam(c);
-  const { role } = await c.req.json<{ role?: string }>();
+  const { role } = await jsonBody<{ role?: string }>(c);
   if (!role || !ROLES.has(role)) bad("Rol no válido");
   if (email === admin.email.toLowerCase() && role !== "admin") bad("No puedes quitarte el rol de admin a ti mismo");
   if (isProtectedAdmin(c.env, email) && role !== "admin") bad("Es admin de emergencia (ADMIN_EMAILS): cámbialo en Cloudflare");

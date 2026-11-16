@@ -22,7 +22,7 @@ export const INTRO = {
     {
       emoji: "🗳️",
       title: "Votamos",
-      text: "En cada ronda tienes dos votos: repártelos o dale los dos al mismo. Son anónimos hasta que se cierra; luego se ve qué votó cada uno.",
+      text: "En cada ronda tienes dos votos: repártelos o dale los dos al mismo (a lo tuyo no vale). Son anónimos hasta que se cierra; luego se ve qué votó cada uno.",
     },
     {
       emoji: "🏆",

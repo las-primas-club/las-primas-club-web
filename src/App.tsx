@@ -88,7 +88,17 @@ export function App() {
           <Route path="/cine/vistas" element={<ReadBooks kind="movie" />} />
           <Route path="/peliculas/:id" element={<BookPage />} />
           <Route path="/admin" element={<Admin />} />
-          <Route path="*" element={<p>Página no encontrada.</p>} />
+          <Route
+            path="*"
+            element={
+              <div className="empty page">
+                <h1>Página no encontrada</h1>
+                <p>
+                  <Link to="/">Volver al inicio</Link>
+                </p>
+              </div>
+            }
+          />
         </Routes>
       </main>
       <footer className="site-footer">

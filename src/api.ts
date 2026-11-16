@@ -8,6 +8,8 @@ export interface BookInput {
   year?: string | null;
 }
 
+export const UNAUTHORIZED_EVENT = "lpc:unauthorized";
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(`/api${path}`, {
     method,
@@ -20,6 +22,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
 async function parse<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => null);
+  // Sesión caducada o acceso retirado: avisamos para volver a la pantalla de entrada.
+  if (res.status === 401) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
   if (!res.ok) throw new Error((data as { error?: string } | null)?.error ?? `Error ${res.status}`);
   return data as T;
 }

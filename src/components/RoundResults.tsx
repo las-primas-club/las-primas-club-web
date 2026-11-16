@@ -45,9 +45,9 @@ export function RoundResults({
                 {book.year && <span className="muted year"> ({book.year})</span>}
                 <p className="muted small">
                   {book.author}
-                  {book.proposed_by_name && ` · propuesto por ${book.proposed_by_name}`}
+                  {book.proposed_by_name && ` · ${k.proposedBy} ${book.proposed_by_name}`}
                 </p>
-                {user && book.archived_at && onRepropose && (
+                {user && book.status === "proposed" && book.archived_at && onRepropose && (
                   <button
                     className="link-btn"
                     disabled={busy || !canRepropose}

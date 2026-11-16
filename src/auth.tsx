@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import type { AppConfig, User } from "../shared/types";
-import { api } from "./api";
+import { api, UNAUTHORIZED_EVENT } from "./api";
 
 interface AuthState {
   user: User | null;
@@ -24,6 +24,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     Promise.all([api.config().then(setConfig), refresh()]).finally(() => setReady(true));
   }, [refresh]);
+
+  // Si la API responde 401 (sesión caducada o ya no eres miembro), se vuelve a la pantalla de entrada.
+  useEffect(() => {
+    const onUnauthorized = () => setUser(null);
+    window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+  }, []);
 
   const logout = useCallback(async () => {
     await api.logout();
