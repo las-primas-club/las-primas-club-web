@@ -2,7 +2,7 @@
 // - La API (/api) nunca se cachea: los datos siempre son los del servidor.
 // - Las páginas van "red primero" (si no hay conexión, se muestra la última versión guardada).
 // - Los ficheros con hash de /assets/ e iconos van "caché primero" (nunca cambian).
-const CACHE = "lpc-v1";
+const CACHE = "lpc-v2";
 const SHELL = ["/", "/logo.svg", "/manifest.webmanifest", "/icons/icon-192.png"];
 
 self.addEventListener("install", (event) => {
@@ -50,4 +50,35 @@ self.addEventListener("fetch", (event) => {
       ),
     );
   }
+});
+
+// ---------- Avisos push ----------
+// El push llega sin contenido: pedimos el último aviso a la API y lo mostramos.
+self.addEventListener("push", (event) => {
+  event.waitUntil(
+    fetch("/api/push/latest", { credentials: "same-origin" })
+      .then((res) => (res.ok ? res.json() : null))
+      .catch(() => null)
+      .then((note) =>
+        self.registration.showNotification(note?.title ?? "Las Primas Club", {
+          body: note?.body ?? "Hay novedades en el club.",
+          icon: "/icons/icon-192.png",
+          badge: "/icons/icon-192.png",
+          data: { url: note?.url ?? "/" },
+        }),
+      ),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  // Solo rutas de la propia web.
+  const path = typeof event.notification.data?.url === "string" && event.notification.data.url.startsWith("/") ? event.notification.data.url : "/";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
+      const open = windows.find((w) => "focus" in w);
+      if (open) return open.navigate(path).then((w) => (w ?? open).focus()).catch(() => self.clients.openWindow(path));
+      return self.clients.openWindow(path);
+    }),
+  );
 });

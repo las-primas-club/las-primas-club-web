@@ -4,7 +4,7 @@ import type { BookSuggestion, Kind } from "../../shared/types";
 import { useAuth } from "../auth";
 import { KINDS } from "../kinds";
 
-const EMPTY = { title: "", author: "", description: "", cover_url: "", year: "" };
+const EMPTY = { title: "", author: "", description: "", cover_url: "", year: "", source: "" };
 
 /** Proponer un libro (Google Books / Open Library) o una película (TMDB): se busca y se rellena solo. */
 export function ProposeForm({ kind, onDone }: { kind: Kind; onDone: () => unknown }) {
@@ -49,7 +49,7 @@ export function ProposeForm({ kind, onDone }: { kind: Kind; onDone: () => unknow
   }, [query, kind]);
 
   const pick = (s: BookSuggestion) => {
-    setForm({ title: s.title, author: s.author, description: s.description, cover_url: s.cover_url, year: s.year });
+    setForm({ title: s.title, author: s.author, description: s.description, cover_url: s.cover_url, year: s.year, source: s.key });
     setPicked(true);
     setResults([]);
     setQuery("");
@@ -67,15 +67,16 @@ export function ProposeForm({ kind, onDone }: { kind: Kind; onDone: () => unknow
     }
   };
 
+  // Si se cambia el título a mano, deja de ser el resultado elegido en la búsqueda.
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-    setForm({ ...form, [k]: e.target.value });
+    setForm({ ...form, [k]: e.target.value, ...(k === "title" ? { source: "" } : {}) });
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      await api.proposeBook(kind, { ...form, year: form.year || null });
+      await api.proposeBook(kind, { ...form, year: form.year || null, source: form.source || null });
       setForm(EMPTY);
       setPicked(false);
       await onDone();

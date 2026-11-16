@@ -7,6 +7,9 @@ import { KINDS } from "../kinds";
 import { Cover } from "./Cover";
 import { useConfirm } from "./Dialog";
 import { EbookPanel } from "./EbookPanel";
+import { MeetupPanel } from "./MeetupPanel";
+import { ProgressPanel } from "./ProgressPanel";
+import { WatchPanel } from "./WatchPanel";
 import { RequireLogin } from "./LoginBox";
 import { Stars } from "./Stars";
 import { Synopsis } from "./Synopsis";
@@ -16,6 +19,7 @@ export function BookDetailView({ book, onChange }: { book: BookDetail; onChange:
   const ask = useConfirm();
   const k = KINDS[book.kind];
   const [comment, setComment] = useState("");
+  const [spoiler, setSpoiler] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,8 +29,10 @@ export function BookDetailView({ book, onChange }: { book: BookDetail; onChange:
     try {
       await fn();
       onChange();
+      return true;
     } catch (e) {
       setError((e as Error).message);
+      return false;
     } finally {
       setBusy(false);
     }
@@ -36,8 +42,9 @@ export function BookDetailView({ book, onChange }: { book: BookDetail; onChange:
     e.preventDefault();
     if (!comment.trim()) return;
     void run(async () => {
-      await api.comment(book.id, comment);
+      await api.comment(book.id, comment, spoiler);
       setComment("");
+      setSpoiler(false);
     });
   };
 
@@ -162,6 +169,9 @@ export function BookDetailView({ book, onChange }: { book: BookDetail; onChange:
         </section>
       )}
 
+      <MeetupPanel book={book} run={run} busy={busy} />
+      <ProgressPanel book={book} run={run} busy={busy} />
+      {book.kind === "movie" && book.status !== "read" && <WatchPanel bookId={book.id} />}
       {book.kind === "book" && <EbookPanel book={book} onChange={onChange} />}
 
       <section className="detail-section">
@@ -187,6 +197,10 @@ export function BookDetailView({ book, onChange }: { book: BookDetail; onChange:
               rows={3}
               maxLength={4000}
             />
+            <label className="check">
+              <input type="checkbox" checked={spoiler} onChange={(e) => setSpoiler(e.target.checked)} /> Contiene spoilers (saldrá
+              tapado)
+            </label>
             <button className="btn" disabled={busy || !comment.trim()}>
               Publicar comentario
             </button>
@@ -212,6 +226,8 @@ function CommentItem({
   const ask = useConfirm();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(c.body);
+  const [draftSpoiler, setDraftSpoiler] = useState(c.spoiler);
+  const [revealed, setRevealed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -233,8 +249,8 @@ function CommentItem({
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!draft.trim()) return;
-    if (draft.trim() === c.body) return setEditing(false);
-    if (await run(() => api.editComment(c.id, draft))) setEditing(false);
+    if (draft.trim() === c.body && draftSpoiler === c.spoiler) return setEditing(false);
+    if (await run(() => api.editComment(c.id, draft, draftSpoiler))) setEditing(false);
   };
 
   return (
@@ -257,6 +273,7 @@ function CommentItem({
                   disabled={busy}
                   onClick={() => {
                     setDraft(c.body);
+                    setDraftSpoiler(c.spoiler);
                     setEditing(true);
                   }}
                 >
@@ -293,6 +310,10 @@ function CommentItem({
               autoFocus
               aria-label="Editar comentario"
             />
+            <label className="check">
+              <input type="checkbox" checked={draftSpoiler} onChange={(e) => setDraftSpoiler(e.target.checked)} /> Contiene
+              spoilers
+            </label>
             <div className="comment-edit-actions">
               <button className="btn" disabled={busy || !draft.trim()}>
                 Guardar
@@ -302,8 +323,14 @@ function CommentItem({
               </button>
             </div>
           </form>
+        ) : c.spoiler && !revealed ? (
+          <button type="button" className="spoiler" onClick={() => setRevealed(true)}>
+            🙈 Spoiler · toca para verlo
+          </button>
         ) : (
-          <p>{c.body}</p>
+          <p>
+            {c.spoiler && <span className="pill spoiler-tag">Spoiler</span>} {c.body}
+          </p>
         )}
         {error && <p className="error small">{error}</p>}
       </div>

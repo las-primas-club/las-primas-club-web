@@ -5,6 +5,8 @@ import { Cover } from "../components/Cover";
 import { CLUB_NAME, INTRO } from "../content";
 import { KINDS } from "../kinds";
 import { useAsync } from "../useAsync";
+import { formatLocalDateTime, isPast } from "../format";
+import { NotificationsToggle } from "../components/NotificationsToggle";
 
 /** Lo que toca ahora (libro o película) y, si hay votación abierta, un aviso para votar. */
 function NowCard({ kind }: { kind: Kind }) {
@@ -38,9 +40,16 @@ function NowCard({ kind }: { kind: Kind }) {
           <p className="muted small">Saldrá de la próxima votación.</p>
         </div>
       )}
+      {item?.meet_at && !isPast(item.meet_at) && (
+        <Link to={k.paths.now} className="now-meet">
+          🍽️ Quedamos el <strong>{formatLocalDateTime(item.meet_at)}</strong>
+          {item.meet_place && ` · ${item.meet_place}`}
+        </Link>
+      )}
       {open ? (
         <Link to={k.paths.vote} className="now-vote">
           🗳️ Votación abierta · {open.candidates.length} candidato{open.candidates.length === 1 ? "" : "s"}
+          {open.closes_at && !isPast(open.closes_at) && ` · hasta el ${formatLocalDateTime(open.closes_at)}`}
           <span>Votar →</span>
         </Link>
       ) : (
@@ -77,6 +86,7 @@ export function Home() {
           <NowCard kind="book" />
           <NowCard kind="movie" />
         </div>
+        <NotificationsToggle />
       </section>
 
       <section className="section">

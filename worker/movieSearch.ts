@@ -59,3 +59,41 @@ export async function searchMovies(query: string, key: string): Promise<BookSugg
     };
   });
 }
+
+export interface WatchProvider {
+  name: string;
+  logo: string;
+}
+export interface WatchInfo {
+  /** Página de TMDB/JustWatch con los enlaces a cada plataforma. */
+  link: string;
+  /** Incluida en la suscripción, alquiler y compra (España). */
+  flatrate: WatchProvider[];
+  rent: WatchProvider[];
+  buy: WatchProvider[];
+}
+
+/** Busca el id de TMDB de una película por título (y año, si lo hay). */
+export async function findMovieId(title: string, year: string | null, key: string): Promise<number | null> {
+  const res = await tmdb("/search/movie", key, { query: title, include_adult: "false", ...(year ? { year } : {}) });
+  if (!res.ok) return null;
+  const data = (await res.json()) as { results?: TmdbMovie[] };
+  return data.results?.[0]?.id ?? null;
+}
+
+/** En qué plataformas se puede ver en España (datos de JustWatch a través de TMDB). */
+export async function watchProviders(id: number, key: string): Promise<WatchInfo | null> {
+  const res = await tmdb(`/movie/${id}/watch/providers`, key);
+  if (!res.ok) return null;
+  type Raw = { provider_name: string; logo_path?: string | null };
+  const data = (await res.json()) as { results?: Record<string, { link?: string; flatrate?: Raw[]; rent?: Raw[]; buy?: Raw[] }> };
+  const es = data.results?.ES;
+  const list = (items?: Raw[]) =>
+    (items ?? []).slice(0, 8).map((p) => ({ name: p.provider_name, logo: p.logo_path ? `https://image.tmdb.org/t/p/w92${p.logo_path}` : "" }));
+  return {
+    link: es?.link ?? `https://www.themoviedb.org/movie/${id}/watch?locale=ES`,
+    flatrate: list(es?.flatrate),
+    rent: list(es?.rent),
+    buy: list(es?.buy),
+  };
+}

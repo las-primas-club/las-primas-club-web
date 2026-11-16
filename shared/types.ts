@@ -35,6 +35,9 @@ export interface Book {
   /** Nombre y tamaño (bytes) del epub subido por un admin, si lo hay. */
   epub_name: string | null;
   epub_size: number | null;
+  /** Quedada para comentarlo: "YYYY-MM-DDTHH:MM" (hora local) y sitio. */
+  meet_at: string | null;
+  meet_place: string | null;
 }
 
 export interface Comment {
@@ -46,6 +49,64 @@ export interface Comment {
   user_id: number;
   user_name: string;
   user_picture: string | null;
+  /** Sale tapado hasta que se toca. */
+  spoiler: boolean;
+}
+
+/** Respuesta de alguien a la quedada. */
+export interface Rsvp {
+  user_id: number;
+  name: string;
+  going: boolean;
+}
+
+/** Por dónde va alguien: porcentaje leído (película: 100 = vista). */
+export interface Progress {
+  user_id: number;
+  name: string;
+  percent: number;
+}
+
+export interface WatchProvider {
+  name: string;
+  logo: string;
+}
+/** Dónde ver una película en España (JustWatch vía TMDB). */
+export interface WatchInfo {
+  link: string;
+  flatrate: WatchProvider[];
+  rent: WatchProvider[];
+  buy: WatchProvider[];
+}
+
+export interface ClubNotification {
+  title: string;
+  body: string;
+  url: string;
+}
+
+export interface StatsItem {
+  id: number;
+  kind: Kind;
+  title: string;
+  avg_rating: number;
+  rating_count: number;
+}
+export interface StatsMember {
+  name: string;
+  /** Propuestas suyas que han salido elegidas. */
+  wins: number;
+  ratings: number;
+  avg_given: number | null;
+  comments: number;
+}
+export interface Stats {
+  /** Terminados por año y tipo. */
+  years: { year: string; books: number; movies: number }[];
+  totals: { books: number; movies: number; ratings: number; comments: number; rounds: number };
+  best: StatsItem[];
+  worst: StatsItem[];
+  members: StatsMember[];
 }
 
 export interface Rating {
@@ -57,6 +118,8 @@ export interface BookDetail extends Book {
   my_rating: number | null;
   ratings: Rating[];
   comments: Comment[];
+  rsvps: Rsvp[];
+  progress: Progress[];
 }
 
 export interface Candidate {
@@ -70,6 +133,10 @@ export interface Round {
   status: "open" | "closed";
   created_at: string;
   closed_at: string | null;
+  /** Fecha límite para votar ("YYYY-MM-DDTHH:MM", hora local), si el admin la ha puesto. */
+  closes_at: string | null;
+  /** Mientras está abierta: nombres de quienes aún no han votado (no se ve qué vota nadie). */
+  pending_voters: string[] | null;
   winner_book_id: number | null;
   candidates: Candidate[];
   /** Mis votos en esta ronda (0, 1 o 2 ids; repetido si di los dos al mismo). */
@@ -99,6 +166,8 @@ export interface AppConfig {
   kindleFrom: string | null;
   /** Hay clave de TMDB: al proponer películas se buscan y rellenan solas. */
   movieSearch: boolean;
+  /** Clave pública VAPID para los avisos push, o null si no están configurados. */
+  pushKey: string | null;
 }
 
 export interface BookSuggestion {

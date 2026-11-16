@@ -111,13 +111,26 @@ Descargarlos funciona sin más. Para el botón **Enviar a mi Kindle** hace falta
 Resend descarga el epub de un enlace temporal (`/api/kindle-file/<token>`, válido 60 min) en vez de recibirlo en base64,
 para no pasar de los 10 ms de CPU del plan gratuito de Workers.
 
-### 6. Desplegar
+### 6. Avisos push (opcional, gratis)
+
+Avisan a los móviles y ordenadores que los activen cuando se abre una votación, hay ganador o se pone la quedada.
+
+```bash
+npm run vapid                                # genera un par de claves
+npx wrangler secret put VAPID_PUBLIC_KEY
+npx wrangler secret put VAPID_PRIVATE_KEY
+```
+
+Cada miembro los activa en *Inicio → Avisos*. En iPhone solo funcionan con la web añadida a la pantalla de inicio.
+Sin las claves, el botón no aparece y todo lo demás funciona igual.
+
+### 7. Desplegar
 
 ```bash
 npm run deploy    # build + migraciones remotas + wrangler deploy
 ```
 
-### 7. Despliegue automático con GitHub Actions
+### 8. Despliegue automático con GitHub Actions
 
 `.github/workflows/deploy.yml` hace, en cada push a `main`: build → migraciones de D1 (`--remote`) → `wrangler deploy` →
 comprobación de que `/api/config` responde. En las PR solo comprueba que compila.
@@ -150,6 +163,13 @@ No actives también *Workers Builds* en Cloudflare, o se desplegaría dos veces.
   que toca ver, puntuaciones, comentarios y el historial de vistas. Internamente comparten tablas (`books.kind`).
 - **Epub**: un admin lo sube desde la ficha del libro (*subir epub*). Cualquier miembro puede descargarlo o, tras guardar
   su dirección `@kindle.com`, mandárselo al Kindle (máx. 10 envíos al día por persona).
+- **Quedada**: en el libro o la película en curso, un admin pone día, hora y sitio; cada uno dice si va. Sale en la home.
+- **Fecha límite de votación**: opcional, al abrir la ronda o después. Es informativa (la ronda la cierra un admin).
+  Mientras está abierta se ve quién falta por votar, nunca qué vota cada uno.
+- **Progreso**: cada uno apunta por dónde va con el libro (o si ya ha visto la película).
+- **Spoilers**: un comentario marcado como spoiler sale tapado hasta que se toca.
+- **Dónde verla**: en la ficha de una película, las plataformas donde está en España (JustWatch vía TMDB; necesita `TMDB_API_KEY`).
+- **Datos** (`/datos`): totales, lo mejor valorado y qué hace cada miembro.
 
 ## Roadmap
 

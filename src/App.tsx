@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { Link, NavLink, Route, Routes, useLocation } from "react-router";
 import { useAuth } from "./auth";
-import { AdminIcon, BookIcon, FilmIcon, HomeIcon, SOCIAL_ICONS } from "./components/Icons";
+import { AdminIcon, BookIcon, FilmIcon, HomeIcon, SOCIAL_ICONS, StatsIcon } from "./components/Icons";
 import { InstallBanner } from "./components/InstallBanner";
 import { LoginScreen } from "./components/LoginScreen";
 import { ANNOUNCEMENT, CLUB_NAME, SOCIAL } from "./content";
@@ -12,6 +12,7 @@ import { Home } from "./pages/Home";
 import { ReadBooks } from "./pages/ReadBooks";
 import { Vote } from "./pages/Vote";
 import { RoundHistory } from "./pages/RoundHistory";
+import { StatsPage } from "./pages/Stats";
 
 // Cada sección agrupa varias rutas (en curso, votación, historial y fichas).
 const NAV = [
@@ -23,6 +24,7 @@ const NAV = [
     match: (p: string) => ["/actual", "/leidos"].includes(p) || p.startsWith("/votacion") || p.startsWith("/libros/"),
   },
   { to: "/cine", label: "Cine", icon: FilmIcon, match: (p: string) => p.startsWith("/cine") || p.startsWith("/peliculas/") },
+  { to: "/datos", label: "Datos", icon: StatsIcon, match: (p: string) => p === "/datos" },
   { to: "/admin", label: "Admin", icon: AdminIcon, match: (p: string) => p === "/admin", admin: true },
 ];
 
@@ -87,6 +89,7 @@ export function App() {
           <Route path="/cine/votacion/rondas" element={<RoundHistory kind="movie" />} />
           <Route path="/cine/vistas" element={<ReadBooks kind="movie" />} />
           <Route path="/peliculas/:id" element={<BookPage />} />
+          <Route path="/datos" element={<StatsPage />} />
           <Route path="/admin" element={<Admin />} />
           <Route
             path="*"

@@ -12,6 +12,7 @@ import { SectionNav } from "../components/SectionNav";
 import { Synopsis } from "../components/Synopsis";
 import { KINDS } from "../kinds";
 import { useAsync } from "../useAsync";
+import { formatLocalDateTime, isPast } from "../format";
 
 /** Puntitos con los votos que me quedan. */
 function VoteDots({ used }: { used: number }) {
@@ -32,6 +33,8 @@ export function Vote({ kind }: { kind: Kind }) {
   const { data: proposed, reload: reloadProposed } = useAsync(() => api.books("proposed", kind), [kind]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deadline, setDeadline] = useState("");
+  const [editingDeadline, setEditingDeadline] = useState(false);
 
   const reload = () => Promise.all([reloadRound(), reloadProposed()]);
   const run = async (fn: () => Promise<unknown>) => {
@@ -40,8 +43,10 @@ export function Vote({ kind }: { kind: Kind }) {
     try {
       await fn();
       await reload();
+      return true;
     } catch (e) {
       setError((e as Error).message);
+      return false;
     } finally {
       setBusy(false);
     }
@@ -89,6 +94,19 @@ export function Vote({ kind }: { kind: Kind }) {
             🔒 Los votos son anónimos hasta que se cierre la ronda; entonces se verá qué votó cada uno. ·{" "}
             {open.voters} persona{open.voters === 1 ? "" : "s"} ha{open.voters === 1 ? "" : "n"} votado.
           </p>
+          {open.closes_at && (
+            <p className={`deadline ${isPast(open.closes_at) ? "is-past" : ""}`}>
+              ⏰ {isPast(open.closes_at) ? "El plazo para votar terminó el" : "Se cierra el"}{" "}
+              <strong>{formatLocalDateTime(open.closes_at)}</strong>
+            </p>
+          )}
+          {open.pending_voters && open.voters > 0 && (
+            <p className="muted small">
+              {open.pending_voters.length === 0
+                ? "✅ Ya ha votado todo el mundo."
+                : `Falta${open.pending_voters.length === 1 ? "" : "n"} por votar: ${open.pending_voters.join(", ")}.`}
+            </p>
+          )}
           {user && (
             <p className="my-votes">
               <VoteDots used={myVotes.length} />
@@ -182,6 +200,34 @@ export function Vote({ kind }: { kind: Kind }) {
               >
                 Cerrar votación
               </button>
+              {editingDeadline ? (
+                <form
+                  className="deadline-form"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void run(() => api.setRoundDeadline(open.id, deadline)).then((ok) => ok && setEditingDeadline(false));
+                  }}
+                >
+                  <input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} aria-label="Fecha límite para votar" />
+                  <button className="btn btn-dark" disabled={busy}>
+                    Guardar
+                  </button>
+                  <button type="button" className="btn btn-ghost" onClick={() => setEditingDeadline(false)}>
+                    Cancelar
+                  </button>
+                </form>
+              ) : (
+                <button
+                  className="btn btn-ghost"
+                  disabled={busy}
+                  onClick={() => {
+                    setDeadline(open.closes_at ?? "");
+                    setEditingDeadline(true);
+                  }}
+                >
+                  {open.closes_at ? "Cambiar fecha límite" : "Poner fecha límite"}
+                </button>
+              )}
               <button
                 className="btn btn-ghost"
                 disabled={busy}
@@ -253,7 +299,15 @@ export function Vote({ kind }: { kind: Kind }) {
           {user?.isAdmin && (
             <div className="admin-bar">
               <span>Admin</span>
-              <button className="btn" disabled={busy} onClick={() => run(() => api.openRound(kind))}>
+              <label className="deadline-new">
+                Fecha límite <span className="muted">(opcional)</span>
+                <input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
+              </label>
+              <button
+                className="btn"
+                disabled={busy}
+                onClick={() => run(() => api.openRound(kind, deadline)).then((ok) => ok && setDeadline(""))}
+              >
                 Abrir nueva votación
               </button>
             </div>

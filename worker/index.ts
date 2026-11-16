@@ -13,12 +13,19 @@ import {
   type Comment,
   type Kind,
   type Member,
+  type ClubNotification,
+  type Progress,
   type Rating,
   type Round,
+  type Rsvp,
+  type Stats,
+  type StatsItem,
+  type StatsMember,
   type User,
 } from "../shared/types";
 import { bookDescription, searchBooks } from "./bookSearch";
-import { searchMovies } from "./movieSearch";
+import { findMovieId, searchMovies, watchProviders } from "./movieSearch";
+import { notifyAll, pushEnabled, validPushEndpoint } from "./push";
 import {
   KINDLE_ADDRESS,
   KindleSendError,
@@ -103,6 +110,20 @@ const PUBLIC_PATHS = new Set([
   "/api/auth/dev",
   "/api/auth/logout",
 ]);
+
+/** Fecha y hora local tal como la da <input type="datetime-local">: "YYYY-MM-DDTHH:MM". Vacío = quitarla. */
+function localDateTime(value: unknown, field: string): string | null {
+  const v = text(value, field, 16, false);
+  if (v && (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v) || Number.isNaN(Date.parse(v)))) bad(`${field} no válida`);
+  return v;
+}
+
+/** Manda un aviso push a todo el club sin retrasar la respuesta. */
+function announce(c: Ctx, note: ClubNotification) {
+  c.executionCtx.waitUntil(
+    notifyAll(c.env, new URL(c.req.url).origin, note).catch((e) => console.error("No se pudo avisar", e)),
+  );
+}
 
 app.use("*", async (c, next) => {
   const isPublic = PUBLIC_PATHS.has(c.req.path) || c.req.path.startsWith("/api/kindle-file/");
@@ -228,6 +249,7 @@ app.get("/config", (c) =>
     devLogin: devLoginEnabled(c),
     kindleFrom: kindleEnabled(c.env) ? c.env.KINDLE_FROM : null,
     movieSearch: Boolean(c.env.TMDB_API_KEY),
+    pushKey: pushEnabled(c.env) ? c.env.VAPID_PUBLIC_KEY : null,
   }),
 );
 
@@ -312,6 +334,7 @@ app.get("/search/description", async (c) => {
 const BOOK_SELECT = `
   SELECT b.id, b.kind, b.title, b.author, b.cover_url, b.description, b.year, b.status,
          b.started_at, b.finished_at, b.proposed_by, p.name AS proposed_by_name, b.archived_at, b.epub_name, b.epub_size,
+         b.meet_at, b.meet_place,
          ROUND(AVG(r.score), 1) AS avg_rating, COUNT(r.score) AS rating_count
   FROM books b
   LEFT JOIN users p ON p.id = b.proposed_by
@@ -351,14 +374,22 @@ async function bookDetail(c: Ctx, where: string, ...params: unknown[]): Promise<
     .first<Book>();
   if (!book) return null;
   const user = c.get("user");
-  const [ratings, comments] = await c.env.DB.batch([
+  const [ratings, comments, rsvps, progress] = await c.env.DB.batch([
     c.env.DB.prepare(
       `SELECT u.id AS user_id, u.name AS user_name, r.score FROM ratings r JOIN users u ON u.id = r.user_id
        WHERE r.book_id = ? ORDER BY r.updated_at`,
     ).bind(book.id),
     c.env.DB.prepare(
-      `SELECT c.id, c.body, c.created_at, c.edited_at, u.id AS user_id, u.name AS user_name, u.picture AS user_picture
+      `SELECT c.id, c.body, c.created_at, c.edited_at, c.spoiler, u.id AS user_id, u.name AS user_name, u.picture AS user_picture
        FROM comments c JOIN users u ON u.id = c.user_id WHERE c.book_id = ? ORDER BY c.created_at`,
+    ).bind(book.id),
+    c.env.DB.prepare(
+      `SELECT u.id AS user_id, u.name, r.going FROM meetup_rsvps r JOIN users u ON u.id = r.user_id
+       WHERE r.book_id = ? ORDER BY r.going DESC, u.name COLLATE NOCASE`,
+    ).bind(book.id),
+    c.env.DB.prepare(
+      `SELECT u.id AS user_id, u.name, p.percent FROM progress p JOIN users u ON u.id = p.user_id
+       WHERE p.book_id = ? ORDER BY p.percent DESC, u.name COLLATE NOCASE`,
     ).bind(book.id),
   ]);
   const ratingRows = ratings.results as (Rating & { user_id: number })[];
@@ -366,7 +397,12 @@ async function bookDetail(c: Ctx, where: string, ...params: unknown[]): Promise<
     ...book,
     my_rating: user ? (ratingRows.find((r) => r.user_id === user.id)?.score ?? null) : null,
     ratings: ratingRows.map(({ user_name, score }) => ({ user_name, score })),
-    comments: comments.results as unknown as Comment[],
+    comments: (comments.results as unknown as (Omit<Comment, "spoiler"> & { spoiler: number })[]).map((cm) => ({
+      ...cm,
+      spoiler: Boolean(cm.spoiler),
+    })),
+    rsvps: (rsvps.results as unknown as (Omit<Rsvp, "going"> & { going: number })[]).map((r) => ({ ...r, going: Boolean(r.going) })),
+    progress: progress.results as unknown as Progress[],
   };
 }
 
@@ -421,15 +457,18 @@ app.post("/books", async (c) => {
   const body = await jsonBody<Record<string, unknown>>(c);
   const kind = kindOf(body.kind);
   const { title, author, description, cover, year } = bookFields(body);
+  // Si se eligió de la búsqueda de TMDB, guardamos su id (sirve para saber dónde verla).
+  const tmdbMatch = kind === "movie" && typeof body.source === "string" ? /^tmdb:(\d{1,10})$/.exec(body.source) : null;
+  const tmdbId = tmdbMatch ? Number(tmdbMatch[1]) : null;
 
   // El límite va en el propio INSERT: si ya tiene el máximo, no inserta nada.
   const book = await c.env.DB.prepare(
-    `INSERT INTO books (kind, title, author, description, cover_url, year, proposed_by)
-     SELECT ?1, ?3, ?4, ?5, ?6, ?7, ?2
+    `INSERT INTO books (kind, title, author, description, cover_url, year, proposed_by, tmdb_id)
+     SELECT ?1, ?3, ?4, ?5, ?6, ?7, ?2, ?9
      WHERE (${PENDING_PROPOSALS}) < ?8
      RETURNING id`,
   )
-    .bind(kind, user.id, title, author, description, cover, year, MAX_PROPOSALS)
+    .bind(kind, user.id, title, author, description, cover, year, MAX_PROPOSALS, tmdbId)
     .first<{ id: number }>();
   if (!book) throw proposalLimitError(kind);
   await joinOpenRound(c, book.id, kind);
@@ -555,11 +594,12 @@ app.delete("/books/:id/rating", async (c) => {
 app.post("/books/:id/comments", async (c) => {
   const user = requireUser(c);
   const id = idParam(c);
-  const body = text((await jsonBody<{ body?: string }>(c)).body, "comentario", 4000);
+  const input = await jsonBody<{ body?: string; spoiler?: unknown }>(c);
+  const body = text(input.body, "comentario", 4000);
   const exists = await c.env.DB.prepare(`SELECT 1 FROM books WHERE id = ?`).bind(id).first();
   if (!exists) throw new HTTPException(404, { message: "Libro no encontrado" });
-  await c.env.DB.prepare(`INSERT INTO comments (book_id, user_id, body) VALUES (?, ?, ?)`)
-    .bind(id, user.id, body)
+  await c.env.DB.prepare(`INSERT INTO comments (book_id, user_id, body, spoiler) VALUES (?, ?, ?, ?)`)
+    .bind(id, user.id, body, input.spoiler === true ? 1 : 0)
     .run();
   return c.json({ ok: true }, 201);
 });
@@ -568,13 +608,20 @@ app.post("/books/:id/comments", async (c) => {
 app.patch("/comments/:id", async (c) => {
   const user = requireUser(c);
   const id = idParam(c);
-  const body = text((await jsonBody<{ body?: string }>(c)).body, "comentario", 4000);
+  const input = await jsonBody<{ body?: string; spoiler?: unknown }>(c);
+  const body = text(input.body, "comentario", 4000);
   const comment = await c.env.DB.prepare(`SELECT user_id FROM comments WHERE id = ?`)
     .bind(id)
     .first<{ user_id: number }>();
   if (!comment) throw new HTTPException(404, { message: "Comentario no encontrado" });
   if (comment.user_id !== user.id) throw new HTTPException(403, { message: "Solo puedes editar tus comentarios" });
-  await c.env.DB.prepare(`UPDATE comments SET body = ?, edited_at = datetime('now') WHERE id = ?`).bind(body, id).run();
+  // Marcar o desmarcar el spoiler no cuenta como edición del texto.
+  await c.env.DB.prepare(
+    `UPDATE comments SET edited_at = CASE WHEN body = ?1 THEN edited_at ELSE datetime('now') END,
+       body = ?1, spoiler = COALESCE(?2, spoiler) WHERE id = ?3`,
+  )
+    .bind(body, typeof input.spoiler === "boolean" ? Number(input.spoiler) : null, id)
+    .run();
   return c.json({ ok: true });
 });
 
@@ -588,6 +635,104 @@ app.delete("/comments/:id", async (c) => {
   if (comment.user_id !== user.id && !user.isAdmin) throw new HTTPException(403, { message: "No es tu comentario" });
   await c.env.DB.prepare(`DELETE FROM comments WHERE id = ?`).bind(id).run();
   return c.json({ ok: true });
+});
+
+// ---------- Quedada, progreso y dónde verla ----------
+
+const MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+
+/** Admin: poner (o quitar, con fecha vacía) la quedada del libro o la película en curso. */
+app.put("/books/:id/meetup", async (c) => {
+  requireAdmin(c);
+  const id = idParam(c);
+  const body = await jsonBody<{ meet_at?: unknown; meet_place?: unknown }>(c);
+  const meetAt = localDateTime(body.meet_at, "fecha");
+  const place = meetAt ? text(body.meet_place, "sitio", 200, false) : null;
+  const book = await c.env.DB.prepare(`SELECT kind, title, meet_at FROM books WHERE id = ?`)
+    .bind(id)
+    .first<{ kind: Kind; title: string; meet_at: string | null }>();
+  if (!book) throw new HTTPException(404, { message: "No encontrado" });
+  await c.env.DB.batch([
+    c.env.DB.prepare(`UPDATE books SET meet_at = ?, meet_place = ? WHERE id = ?`).bind(meetAt, place, id),
+    // Si cambia la fecha (o se quita), las respuestas anteriores ya no valen.
+    ...(meetAt !== book.meet_at ? [c.env.DB.prepare(`DELETE FROM meetup_rsvps WHERE book_id = ?`).bind(id)] : []),
+  ]);
+  if (meetAt && meetAt !== book.meet_at) {
+    const when = `${Number(meetAt.slice(8, 10))} de ${MONTHS[Number(meetAt.slice(5, 7)) - 1]} a las ${meetAt.slice(11)}`;
+    announce(c, {
+      title: "🍽️ ¡Hay quedada!",
+      body: `${book.title}: ${when}${place ? `, ${place}` : ""}. Di si vienes.`,
+      url: book.kind === "movie" ? `/peliculas/${id}` : `/libros/${id}`,
+    });
+  }
+  return c.json({ ok: true });
+});
+
+/** Voy / no puedo ir a la quedada (going: null para quitar mi respuesta). */
+app.put("/books/:id/rsvp", async (c) => {
+  const user = requireUser(c);
+  const id = idParam(c);
+  const { going } = await jsonBody<{ going?: unknown }>(c);
+  if (going === null || going === undefined) {
+    await c.env.DB.prepare(`DELETE FROM meetup_rsvps WHERE book_id = ? AND user_id = ?`).bind(id, user.id).run();
+    return c.json({ ok: true });
+  }
+  if (typeof going !== "boolean") bad("Respuesta no válida");
+  const book = await c.env.DB.prepare(`SELECT meet_at FROM books WHERE id = ?`).bind(id).first<{ meet_at: string | null }>();
+  if (!book) throw new HTTPException(404, { message: "No encontrado" });
+  if (!book.meet_at) bad("Todavía no hay quedada");
+  await c.env.DB.prepare(
+    `INSERT INTO meetup_rsvps (book_id, user_id, going) VALUES (?, ?, ?)
+     ON CONFLICT (book_id, user_id) DO UPDATE SET going = excluded.going, updated_at = datetime('now')`,
+  )
+    .bind(id, user.id, going ? 1 : 0)
+    .run();
+  return c.json({ ok: true });
+});
+
+/** Por dónde voy: porcentaje de 0 a 100 (percent: null para quitarlo). */
+app.put("/books/:id/progress", async (c) => {
+  const user = requireUser(c);
+  const id = idParam(c);
+  const { percent } = await jsonBody<{ percent?: unknown }>(c);
+  if (percent === null || percent === undefined) {
+    await c.env.DB.prepare(`DELETE FROM progress WHERE book_id = ? AND user_id = ?`).bind(id, user.id).run();
+    return c.json({ ok: true });
+  }
+  if (typeof percent !== "number" || !Number.isInteger(percent) || percent < 0 || percent > 100) bad("El progreso va de 0 a 100");
+  const book = await c.env.DB.prepare(`SELECT status FROM books WHERE id = ?`).bind(id).first<{ status: string }>();
+  if (!book) throw new HTTPException(404, { message: "No encontrado" });
+  if (book.status === "proposed") bad("Todavía no se ha elegido");
+  await c.env.DB.prepare(
+    `INSERT INTO progress (book_id, user_id, percent) VALUES (?, ?, ?)
+     ON CONFLICT (book_id, user_id) DO UPDATE SET percent = excluded.percent, updated_at = datetime('now')`,
+  )
+    .bind(id, user.id, percent)
+    .run();
+  return c.json({ ok: true });
+});
+
+/** Dónde ver una película en España. null si no hay clave de TMDB o no se encuentra la película. */
+app.get("/books/:id/watch", async (c) => {
+  const id = idParam(c);
+  const key = c.env.TMDB_API_KEY;
+  const book = await c.env.DB.prepare(`SELECT kind, title, year, tmdb_id FROM books WHERE id = ?`)
+    .bind(id)
+    .first<{ kind: Kind; title: string; year: string | null; tmdb_id: number | null }>();
+  if (!book) throw new HTTPException(404, { message: "No encontrado" });
+  if (!key || book.kind !== "movie") return c.json(null);
+  try {
+    let tmdbId = book.tmdb_id;
+    if (!tmdbId) {
+      // Películas propuestas a mano o antes de guardar el id: la buscamos por título y lo recordamos.
+      tmdbId = await findMovieId(book.title, book.year, key);
+      if (tmdbId) await c.env.DB.prepare(`UPDATE books SET tmdb_id = ? WHERE id = ?`).bind(tmdbId, id).run();
+    }
+    return c.json(tmdbId ? await watchProviders(tmdbId, key) : null);
+  } catch (e) {
+    console.warn("No se pudo consultar dónde verla", e);
+    return c.json(null);
+  }
 });
 
 // ---------- Epub y envío al Kindle ----------
@@ -728,8 +873,8 @@ app.get("/kindle-file/:token", async (c) => {
 
 async function roundDetail(c: Ctx, roundId: number): Promise<Round> {
   const user = c.get("user");
-  const [round, candidates, votes] = await c.env.DB.batch([
-    c.env.DB.prepare(`SELECT id, kind, status, created_at, closed_at, winner_book_id FROM rounds WHERE id = ?`).bind(roundId),
+  const [round, candidates, votes, pending] = await c.env.DB.batch([
+    c.env.DB.prepare(`SELECT id, kind, status, created_at, closed_at, closes_at, winner_book_id FROM rounds WHERE id = ?`).bind(roundId),
     c.env.DB.prepare(
       `${BOOK_SELECT}
        JOIN round_candidates rc ON rc.book_id = b.id AND rc.round_id = ?1
@@ -739,8 +884,14 @@ async function roundDetail(c: Ctx, roundId: number): Promise<Round> {
       `SELECT v.user_id, v.book_id, u.name, u.picture FROM votes v JOIN users u ON u.id = v.user_id
        WHERE v.round_id = ? ORDER BY u.name, v.slot`,
     ).bind(roundId),
+    // Miembros que ya han entrado alguna vez y todavía no han votado en esta ronda.
+    c.env.DB.prepare(
+      `SELECT u.name FROM users u JOIN members m ON m.email = u.email
+       WHERE NOT EXISTS (SELECT 1 FROM votes v WHERE v.round_id = ? AND v.user_id = u.id)
+       ORDER BY u.name COLLATE NOCASE`,
+    ).bind(roundId),
   ]);
-  const r = round.results[0] as Pick<Round, "id" | "kind" | "status" | "created_at" | "closed_at" | "winner_book_id">;
+  const r = round.results[0] as Pick<Round, "id" | "kind" | "status" | "created_at" | "closed_at" | "closes_at" | "winner_book_id">;
   if (!r) throw new HTTPException(404, { message: "Ronda no encontrada" });
   const rows = votes.results as { user_id: number; book_id: number; name: string; picture: string | null }[];
 
@@ -762,6 +913,7 @@ async function roundDetail(c: Ctx, roundId: number): Promise<Round> {
     total_votes: rows.length,
     // Mientras la ronda está abierta, los votos son anónimos: solo se ven los totales.
     ballots: r.status === "closed" ? [...byUser.values()] : null,
+    pending_voters: r.status === "open" ? (pending.results as { name: string }[]).map((p) => p.name) : null,
   };
 }
 
@@ -788,17 +940,37 @@ app.get("/rounds", async (c) => {
 /** Admin: abrir una ronda nueva. Entran todas las propuestas pendientes. */
 app.post("/rounds", async (c) => {
   requireAdmin(c);
-  const kind = kindOf((await jsonBody<{ kind?: string }>(c).catch(() => ({}) as { kind?: string })).kind);
+  const input = await jsonBody<{ kind?: string; closes_at?: unknown }>(c).catch(() => ({}) as { kind?: string; closes_at?: unknown });
+  const kind = kindOf(input.kind);
+  const closesAt = localDateTime(input.closes_at, "fecha límite");
   const open = await c.env.DB.prepare(`SELECT 1 FROM rounds WHERE status = 'open' AND kind = ?`).bind(kind).first();
   if (open) bad("Ya hay una ronda abierta");
-  const round = await c.env.DB.prepare(`INSERT INTO rounds (kind) VALUES (?) RETURNING id`).bind(kind).first<{ id: number }>();
+  const round = await c.env.DB.prepare(`INSERT INTO rounds (kind, closes_at) VALUES (?, ?) RETURNING id`)
+    .bind(kind, closesAt)
+    .first<{ id: number }>();
   await c.env.DB.prepare(
     `INSERT INTO round_candidates (round_id, book_id)
      SELECT ?, id FROM books WHERE status = 'proposed' AND archived_at IS NULL AND kind = ?`,
   )
     .bind(round!.id, kind)
     .run();
+  announce(c, {
+    title: "🗳️ Votación abierta",
+    body: kind === "movie" ? "Ya puedes votar la próxima película." : "Ya puedes votar el próximo libro.",
+    url: kind === "movie" ? "/cine/votacion" : "/votacion",
+  });
   return c.json({ id: round!.id }, 201);
+});
+
+/** Admin: poner, cambiar o quitar la fecha límite de la ronda abierta. */
+app.patch("/rounds/:id", async (c) => {
+  requireAdmin(c);
+  const closesAt = localDateTime((await jsonBody<{ closes_at?: unknown }>(c)).closes_at, "fecha límite");
+  const res = await c.env.DB.prepare(`UPDATE rounds SET closes_at = ? WHERE id = ? AND status = 'open'`)
+    .bind(closesAt, idParam(c))
+    .run();
+  if (!res.meta.changes) bad("La ronda no está abierta");
+  return c.json({ ok: true });
 });
 
 /** Repartir mis votos: lista de hasta MAX_VOTES candidatos (se puede repetir uno para darle los dos; nunca a una propuesta propia). Sustituye a los anteriores. */
@@ -859,6 +1031,11 @@ app.post("/rounds/:id/close", async (c) => {
        WHERE status = 'proposed' AND id IN (SELECT book_id FROM round_candidates WHERE round_id = ?)`,
     ).bind(round.id),
   ]);
+  announce(c, {
+    title: round.kind === "movie" ? "🏆 Ya hay película" : "🏆 Ya hay libro",
+    body: `Ha ganado "${winner.book.title}" con ${winner.votes} voto${winner.votes === 1 ? "" : "s"}.`,
+    url: round.kind === "movie" ? "/cine" : "/actual",
+  });
   return c.json({ winnerId: winner.book.id });
 });
 
@@ -868,6 +1045,84 @@ app.delete("/rounds/:id", async (c) => {
   const res = await c.env.DB.prepare(`DELETE FROM rounds WHERE id = ? AND status = 'open'`).bind(idParam(c)).run();
   if (!res.meta.changes) bad("Solo se puede cancelar una ronda abierta");
   return c.json({ ok: true });
+});
+
+// ---------- Estadísticas ----------
+
+app.get("/stats", async (c) => {
+  const [years, totals, rated, members] = await c.env.DB.batch([
+    c.env.DB.prepare(
+      `SELECT substr(finished_at, 1, 4) AS year, SUM(kind = 'book') AS books, SUM(kind = 'movie') AS movies
+       FROM books WHERE status = 'read' AND finished_at IS NOT NULL GROUP BY year ORDER BY year DESC`,
+    ),
+    c.env.DB.prepare(
+      `SELECT (SELECT COUNT(*) FROM books WHERE status = 'read' AND kind = 'book') AS books,
+              (SELECT COUNT(*) FROM books WHERE status = 'read' AND kind = 'movie') AS movies,
+              (SELECT COUNT(*) FROM ratings) AS ratings,
+              (SELECT COUNT(*) FROM comments) AS comments,
+              (SELECT COUNT(*) FROM rounds WHERE status = 'closed') AS rounds`,
+    ),
+    c.env.DB.prepare(
+      `SELECT b.id, b.kind, b.title, ROUND(AVG(r.score), 1) AS avg_rating, COUNT(*) AS rating_count
+       FROM books b JOIN ratings r ON r.book_id = b.id GROUP BY b.id ORDER BY AVG(r.score) DESC, COUNT(*) DESC, b.id`,
+    ),
+    c.env.DB.prepare(
+      `SELECT u.name,
+              (SELECT COUNT(*) FROM books b WHERE b.proposed_by = u.id AND b.status IN ('current', 'read')) AS wins,
+              (SELECT COUNT(*) FROM ratings r WHERE r.user_id = u.id) AS ratings,
+              (SELECT ROUND(AVG(r.score), 1) FROM ratings r WHERE r.user_id = u.id) AS avg_given,
+              (SELECT COUNT(*) FROM comments cm WHERE cm.user_id = u.id) AS comments
+       FROM users u JOIN members m ON m.email = u.email ORDER BY u.name COLLATE NOCASE`,
+    ),
+  ]);
+  const items = rated.results as unknown as StatsItem[];
+  return c.json<Stats>({
+    years: years.results as unknown as Stats["years"],
+    totals: totals.results[0] as unknown as Stats["totals"],
+    best: items.slice(0, 5),
+    // Lo peor valorado solo tiene gracia si hay más cosas puntuadas que las que ya salen como mejores.
+    worst: items.length > 5 ? items.slice(-Math.min(3, items.length - 5)).reverse() : [],
+    members: members.results as unknown as StatsMember[],
+  });
+});
+
+// ---------- Avisos push ----------
+
+/** Activar los avisos en este dispositivo. */
+app.post("/push/subscribe", async (c) => {
+  const user = requireUser(c);
+  if (!pushEnabled(c.env)) throw new HTTPException(503, { message: "Los avisos no están configurados" });
+  const { endpoint } = await jsonBody<{ endpoint?: unknown }>(c);
+  if (!validPushEndpoint(endpoint)) bad("Suscripción no válida");
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      `INSERT INTO push_subscriptions (endpoint, user_id) VALUES (?, ?)
+       ON CONFLICT (endpoint) DO UPDATE SET user_id = excluded.user_id`,
+    ).bind(endpoint, user.id),
+    // Como mucho 5 dispositivos por persona: se quedan los más recientes.
+    c.env.DB.prepare(
+      `DELETE FROM push_subscriptions WHERE user_id = ?1 AND endpoint NOT IN
+         (SELECT endpoint FROM push_subscriptions WHERE user_id = ?1 ORDER BY created_at DESC, rowid DESC LIMIT 5)`,
+    ).bind(user.id),
+  ]);
+  return c.json({ ok: true }, 201);
+});
+
+/** Desactivar los avisos en este dispositivo. */
+app.post("/push/unsubscribe", async (c) => {
+  const user = requireUser(c);
+  const { endpoint } = await jsonBody<{ endpoint?: unknown }>(c);
+  if (typeof endpoint !== "string") bad("Suscripción no válida");
+  await c.env.DB.prepare(`DELETE FROM push_subscriptions WHERE endpoint = ? AND user_id = ?`).bind(endpoint, user.id).run();
+  return c.json({ ok: true });
+});
+
+/** El último aviso: lo pide el service worker al recibir un push (que llega sin contenido). */
+app.get("/push/latest", async (c) => {
+  const note = await c.env.DB.prepare(
+    `SELECT title, body, url FROM notifications WHERE created_at > datetime('now', '-1 day') ORDER BY id DESC LIMIT 1`,
+  ).first<ClubNotification>();
+  return c.json(note ?? null);
 });
 
 // ---------- Administración de miembros ----------

@@ -54,6 +54,12 @@ export const FilmIcon = () => (
   </svg>
 );
 
+export const StatsIcon = () => (
+  <svg {...base}>
+    <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
+  </svg>
+);
+
 /** Iconos de marca (rellenos) para las redes sociales del pie de página. */
 export const SOCIAL_ICONS = {
   github: () => (

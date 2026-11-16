@@ -39,6 +39,7 @@
 	//   GOOGLE_BOOKS_API_KEY (opcional): clave gratuita de Google Books para buscar libros
 	//   TMDB_API_KEY (opcional): clave gratuita de themoviedb.org para buscar películas
 	//   RESEND_API_KEY (opcional): clave de Resend (gratis, 100 emails/día) para "Enviar a mi Kindle"
+	//   VAPID_PUBLIC_KEY y VAPID_PRIVATE_KEY (opcional): claves para los avisos push; se generan con `npm run vapid`
 	"observability": {
 		"enabled": true
 	}

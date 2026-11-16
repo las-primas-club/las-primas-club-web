@@ -1,4 +1,17 @@
-import type { AccessRequest, AppConfig, Book, BookDetail, BookSuggestion, Kind, Member, Role, Round, User } from "../shared/types";
+import type {
+  AccessRequest,
+  AppConfig,
+  Book,
+  BookDetail,
+  BookSuggestion,
+  Kind,
+  Member,
+  Role,
+  Round,
+  Stats,
+  User,
+  WatchInfo,
+} from "../shared/types";
 
 export interface BookInput {
   title: string;
@@ -6,6 +19,8 @@ export interface BookInput {
   description?: string | null;
   cover_url?: string | null;
   year?: string | null;
+  /** Clave del resultado de búsqueda elegido (p. ej. "tmdb:123"), si lo hubo. */
+  source?: string | null;
 }
 
 export const UNAUTHORIZED_EVENT = "lpc:unauthorized";
@@ -46,8 +61,16 @@ export const api = {
   startBook: (id: number) => request("POST", `/books/${id}/start`),
   finishBook: (id: number) => request("POST", `/books/${id}/finish`),
   rate: (id: number, score: number) => request("PUT", `/books/${id}/rating`, { score }),
-  comment: (id: number, body: string) => request("POST", `/books/${id}/comments`, { body }),
-  editComment: (id: number, body: string) => request("PATCH", `/comments/${id}`, { body }),
+  comment: (id: number, body: string, spoiler = false) => request("POST", `/books/${id}/comments`, { body, spoiler }),
+  editComment: (id: number, body: string, spoiler?: boolean) => request("PATCH", `/comments/${id}`, { body, spoiler }),
+  /** Quedada: fecha "YYYY-MM-DDTHH:MM" (vacía para quitarla) y sitio. */
+  setMeetup: (id: number, meet_at: string, meet_place: string) => request("PUT", `/books/${id}/meetup`, { meet_at, meet_place }),
+  rsvp: (id: number, going: boolean | null) => request("PUT", `/books/${id}/rsvp`, { going }),
+  setProgress: (id: number, percent: number | null) => request("PUT", `/books/${id}/progress`, { percent }),
+  watch: (id: number) => request<WatchInfo | null>("GET", `/books/${id}/watch`),
+  stats: () => request<Stats>("GET", "/stats"),
+  pushSubscribe: (endpoint: string) => request("POST", "/push/subscribe", { endpoint }),
+  pushUnsubscribe: (endpoint: string) => request("POST", "/push/unsubscribe", { endpoint }),
   deleteComment: (id: number) => request("DELETE", `/comments/${id}`),
   unrate: (id: number) => request("DELETE", `/books/${id}/rating`),
 
@@ -84,7 +107,8 @@ export const api = {
   },
 
   currentRound: (kind: Kind = "book") => request<Round | null>("GET", `/rounds/current?kind=${kind}`),
-  openRound: (kind: Kind = "book") => request("POST", "/rounds", { kind }),
+  openRound: (kind: Kind = "book", closes_at = "") => request("POST", "/rounds", { kind, closes_at }),
+  setRoundDeadline: (roundId: number, closes_at: string) => request("PATCH", `/rounds/${roundId}`, { closes_at }),
   rounds: (kind: Kind) => request<Round[]>("GET", `/rounds?kind=${kind}`),
   /** Mis votos de la ronda (hasta MAX_VOTES ids, repetidos si van al mismo). */
   setVotes: (roundId: number, bookIds: number[]) => request("PUT", `/rounds/${roundId}/votes`, { bookIds }),
