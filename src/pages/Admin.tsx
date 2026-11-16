@@ -4,6 +4,7 @@ import type { Book, Kind, Role } from "../../shared/types";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { Cover } from "../components/Cover";
+import { useConfirm, type ConfirmOptions } from "../components/Dialog";
 import { formatDate, formatDateTime } from "../format";
 import { KINDS } from "../kinds";
 import { useAsync } from "../useAsync";
@@ -14,8 +15,9 @@ type Tab = "members" | "books" | "rounds";
 function useAction(reload: () => unknown) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const run = async (fn: () => Promise<unknown>, confirmText?: string) => {
-    if (confirmText && !confirm(confirmText)) return;
+  const ask = useConfirm();
+  const run = async (fn: () => Promise<unknown>, confirmWith?: ConfirmOptions) => {
+    if (confirmWith && !(await ask(confirmWith))) return;
     setBusy(true);
     setError(null);
     try {
@@ -105,7 +107,12 @@ function MembersTab() {
                   <button
                     className="btn btn-ghost"
                     disabled={busy}
-                    onClick={() => run(() => api.admin.reject(r.email), `¿Rechazar a ${r.email}?`)}
+                    onClick={() => run(() => api.admin.reject(r.email), {
+                        title: "¿Rechazar la solicitud?",
+                        message: `${r.email} no podrá entrar. Si vuelve a intentarlo, aparecerá otra vez aquí.`,
+                        confirmLabel: "Rechazar",
+                        danger: true,
+                      })}
                   >
                     Rechazar
                   </button>
@@ -173,7 +180,12 @@ function MembersTab() {
                       onClick={() =>
                         run(
                           () => api.admin.removeMember(m.email),
-                          `¿Quitar a ${m.email} del club? Perderá el acceso al momento (sus comentarios se conservan).`,
+                          {
+                            title: `¿Quitar a ${m.name ?? m.email} del club?`,
+                            message: "Perderá el acceso al momento. Sus comentarios y puntuaciones se conservan.",
+                            confirmLabel: "Quitar del club",
+                            danger: true,
+                          },
                         )
                       }
                     >
@@ -266,7 +278,11 @@ function BooksTab() {
                     <button
                       className="link-btn"
                       disabled={busy}
-                      onClick={() => run(() => api.startBook(b.id), `¿Elegir "${b.title}" ya, sin votación?`)}
+                      onClick={() => run(() => api.startBook(b.id), {
+                          title: `¿Elegir "${b.title}" ya?`,
+                          message: "Pasará a estar en curso sin votación.",
+                          confirmLabel: "Elegir ya",
+                        })}
                     >
                       {KINDS[b.kind].startAction}
                     </button>
@@ -275,7 +291,11 @@ function BooksTab() {
                     <button
                       className="link-btn"
                       disabled={busy}
-                      onClick={() => run(() => api.finishBook(b.id), KINDS[b.kind].doneConfirm)}
+                      onClick={() => run(() => api.finishBook(b.id), {
+                          title: KINDS[b.kind].doneConfirm,
+                          message: `"${b.title}" pasará al historial.`,
+                          confirmLabel: KINDS[b.kind].doneAction,
+                        })}
                     >
                       {b.kind === "movie" ? "vista" : "terminar"}
                     </button>
@@ -289,7 +309,12 @@ function BooksTab() {
                     onClick={() =>
                       run(
                         () => api.deleteBook(b.id),
-                        `¿Borrar "${b.title}" para siempre? Se borrarán también sus votos, puntuaciones y comentarios.`,
+                        {
+                          title: `¿Borrar "${b.title}" para siempre?`,
+                          message: "Se borrarán también sus votos, puntuaciones y comentarios. No se puede deshacer.",
+                          confirmLabel: "Borrar",
+                          danger: true,
+                        },
                       )
                     }
                   >
@@ -418,7 +443,14 @@ function KindRounds({ kind }: { kind: Kind }) {
               className="btn"
               disabled={busy}
               onClick={() =>
-                run(() => api.closeRound(open.id), `¿Cerrar la votación? ${kind === "movie" ? "La más votada pasará a ser la película que toca ver" : "El más votado pasará a ser el libro actual"}.`)
+                run(() => api.closeRound(open.id), {
+                  title: "¿Cerrar la votación?",
+                  message:
+                    kind === "movie"
+                      ? "La película más votada pasará a ser la que toca ver. Si hay empate, gana la que se propuso antes."
+                      : "El libro más votado pasará a ser el libro en curso. Si hay empate, gana el que se propuso antes.",
+                  confirmLabel: "Cerrar votación",
+                })
               }
             >
               Cerrar y elegir ganador
@@ -429,7 +461,13 @@ function KindRounds({ kind }: { kind: Kind }) {
               onClick={() =>
                 run(
                   () => api.cancelRound(open.id),
-                  "¿Cancelar la ronda? Se borrarán sus votos; las propuestas se mantienen.",
+                  {
+                    title: "¿Cancelar la ronda?",
+                    message: "Se borrarán sus votos. Las propuestas se mantienen para la próxima.",
+                    confirmLabel: "Cancelar ronda",
+                    cancelLabel: "Volver",
+                    danger: true,
+                  },
                 )
               }
             >

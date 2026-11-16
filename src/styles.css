@@ -155,6 +155,8 @@ label { display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-
 }
 .stars-sm .star { font-size: 0.95rem; }
 .stars-lg .star { font-size: 1.7rem; }
+.stars-input { touch-action: manipulation; border-radius: 4px; }
+.stars-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 .stars-input button:hover .star { transform: scale(1.15); }
 
 /* ---------- Portadas ---------- */
@@ -531,4 +533,41 @@ select {
   .flow::before { top: 24px; bottom: 24px; left: 23px; right: auto; width: 2px; height: auto; }
   .flow-step { flex-direction: row; align-items: flex-start; text-align: left; gap: 16px; }
   .flow-n { flex: none; }
+}
+
+/* ---------- Modales ---------- */
+.btn-danger { background: var(--error); border-color: var(--error); }
+.btn-danger:hover:not(:disabled) { background: #b42318; border-color: #b42318; }
+
+.modal {
+  width: min(440px, calc(100vw - 32px)); padding: 0; border: 1px solid var(--ink); border-radius: 12px;
+  background: #fff; color: var(--ink); box-shadow: 0 24px 60px rgb(0 0 0 / 22%);
+}
+.modal::backdrop { background: rgb(17 17 17 / 45%); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
+.modal[open] { animation: modal-in 0.18s ease-out; }
+.modal[open]::backdrop { animation: fade-in 0.18s ease-out; }
+.modal-body { padding: 24px; position: relative; }
+.modal-body::before {
+  content: ""; position: absolute; inset: 0 0 auto; height: 5px; background: var(--stripes); border-radius: 12px 12px 0 0;
+}
+.modal h2 { font-size: 1.6rem; margin: 6px 0 10px; }
+.modal-message { color: var(--muted); line-height: 1.5; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
+@keyframes modal-in { from { opacity: 0; transform: translateY(12px) scale(0.98); } }
+@keyframes fade-in { from { opacity: 0; } }
+
+@media (max-width: 640px) {
+  /* En el móvil, hoja que sube desde abajo */
+  .modal {
+    width: 100%; max-width: none; margin: auto 0 0; border-radius: 16px 16px 0 0; border-width: 1px 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .modal-body::before { border-radius: 16px 16px 0 0; }
+  .modal[open] { animation: sheet-in 0.22s ease-out; }
+  .modal-actions { flex-direction: column-reverse; }
+  .modal-actions .btn { width: 100%; }
+}
+@keyframes sheet-in { from { transform: translateY(100%); } }
+@media (prefers-reduced-motion: reduce) {
+  .modal[open], .modal[open]::backdrop { animation: none; }
 }

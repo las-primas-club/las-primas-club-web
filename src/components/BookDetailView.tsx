@@ -2,15 +2,17 @@ import { useState } from "react";
 import type { BookDetail } from "../../shared/types";
 import { api } from "../api";
 import { useAuth } from "../auth";
-import { formatDate, formatDateTime } from "../format";
+import { formatDate, formatDateTime, formatScore } from "../format";
 import { KINDS } from "../kinds";
 import { Cover } from "./Cover";
+import { useConfirm } from "./Dialog";
 import { EbookPanel } from "./EbookPanel";
 import { RequireLogin } from "./LoginBox";
 import { Stars } from "./Stars";
 
 export function BookDetailView({ book, onChange }: { book: BookDetail; onChange: () => void }) {
   const { user } = useAuth();
+  const ask = useConfirm();
   const k = KINDS[book.kind];
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
@@ -74,12 +76,12 @@ export function BookDetailView({ book, onChange }: { book: BookDetail; onChange:
           {book.status !== "proposed" && (
             <div className="panel">
               <div className="panel-score">
-                <span className="big-score">{book.avg_rating != null ? book.avg_rating.toFixed(1) : "–"}</span>
+                <span className="big-score">{book.avg_rating != null ? formatScore(book.avg_rating, true) : "–"}</span>
                 <div>
                   <Stars value={book.avg_rating} size="lg" />
                   <p className="muted small">
                     {book.rating_count
-                      ? `${book.rating_count} puntuación${book.rating_count === 1 ? "" : "es"} del club`
+                      ? `${book.rating_count} ${book.rating_count === 1 ? "puntuación" : "puntuaciones"} del club`
                       : "Sin puntuaciones todavía"}
                   </p>
                 </div>
@@ -91,7 +93,9 @@ export function BookDetailView({ book, onChange }: { book: BookDetail; onChange:
                   <div className="my-rating">
                     <Stars value={book.my_rating} onChange={(v) => run(() => api.rate(book.id, v))} size="lg" />
                     <span className="muted small">
-                      {book.my_rating ? `Le has dado ${book.my_rating}/5` : "Toca una estrella"}
+                      {book.my_rating
+                        ? `Le has dado ${formatScore(book.my_rating)}/5`
+                        : "Toca una estrella (la mitad izquierda da media)"}
                     </span>
                   </div>
                 </RequireLogin>
@@ -112,7 +116,13 @@ export function BookDetailView({ book, onChange }: { book: BookDetail; onChange:
                 <button
                   className="btn btn-block"
                   disabled={busy}
-                  onClick={() => confirm(k.doneConfirm) && run(() => api.finishBook(book.id))}
+                  onClick={async () =>
+                    (await ask({
+                      title: k.doneConfirm,
+                      message: `"${book.title}" pasará al historial de ${k.doneShort.toLowerCase()}.`,
+                      confirmLabel: k.doneAction,
+                    })) && run(() => api.finishBook(book.id))
+                  }
                 >
                   {k.doneAction}
                 </button>
@@ -150,7 +160,14 @@ export function BookDetailView({ book, onChange }: { book: BookDetail; onChange:
                     <button
                       className="link-btn"
                       disabled={busy}
-                      onClick={() => confirm("¿Borrar este comentario?") && run(() => api.deleteComment(c.id))}
+                      onClick={async () =>
+                        (await ask({
+                          title: "¿Borrar este comentario?",
+                          message: "No se puede deshacer.",
+                          confirmLabel: "Borrar",
+                          danger: true,
+                        })) && run(() => api.deleteComment(c.id))
+                      }
                     >
                       borrar
                     </button>

@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { Cover } from "../components/Cover";
+import { useConfirm } from "../components/Dialog";
 import { ProposeForm } from "../components/ProposeForm";
 import { RequireLogin } from "../components/LoginBox";
 import { SectionNav } from "../components/SectionNav";
@@ -13,6 +14,7 @@ import type { Kind } from "../../shared/types";
 export function Vote({ kind }: { kind: Kind }) {
   const k = KINDS[kind];
   const { user } = useAuth();
+  const ask = useConfirm();
   const { data: round, loading, error: loadError, reload: reloadRound } = useAsync(() => api.currentRound(kind), [user?.id, kind]);
   const { data: proposed, reload: reloadProposed } = useAsync(() => api.books("proposed", kind), [kind]);
   const [busy, setBusy] = useState(false);
@@ -87,7 +89,14 @@ export function Vote({ kind }: { kind: Kind }) {
                       <button
                         className="link-btn"
                         disabled={busy}
-                        onClick={() => confirm(`¿Quitar "${book.title}"?`) && run(() => api.deleteBook(book.id))}
+                        onClick={async () =>
+                          (await ask({
+                            title: `¿Quitar "${book.title}"?`,
+                            message: "Se borrará la propuesta junto con sus votos.",
+                            confirmLabel: "Quitar",
+                            danger: true,
+                          })) && run(() => api.deleteBook(book.id))
+                        }
                       >
                         quitar
                       </button>
@@ -108,9 +117,15 @@ export function Vote({ kind }: { kind: Kind }) {
               <button
                 className="btn"
                 disabled={busy}
-                onClick={() =>
-                  confirm(`¿Cerrar la votación? ${kind === "movie" ? "La película más votada pasará a ser la siguiente que veamos" : "El libro más votado pasará a ser el libro en curso"}.`) &&
-                  run(() => api.closeRound(open.id))
+                onClick={async () =>
+                  (await ask({
+                    title: "¿Cerrar la votación?",
+                    message:
+                      kind === "movie"
+                        ? "La película más votada pasará a ser la que toca ver. Si hay empate, gana la que se propuso antes."
+                        : "El libro más votado pasará a ser el libro en curso. Si hay empate, gana el que se propuso antes.",
+                    confirmLabel: "Cerrar votación",
+                  })) && run(() => api.closeRound(open.id))
                 }
               >
                 Cerrar votación
@@ -118,9 +133,14 @@ export function Vote({ kind }: { kind: Kind }) {
               <button
                 className="btn btn-ghost"
                 disabled={busy}
-                onClick={() =>
-                  confirm(`¿Cancelar la ronda? Se borrarán sus votos; las propuestas se mantienen.`) &&
-                  run(() => api.cancelRound(open.id))
+                onClick={async () =>
+                  (await ask({
+                    title: "¿Cancelar la ronda?",
+                    message: "Se borrarán sus votos. Las propuestas se mantienen para la próxima.",
+                    confirmLabel: "Cancelar ronda",
+                    cancelLabel: "Volver",
+                    danger: true,
+                  })) && run(() => api.cancelRound(open.id))
                 }
               >
                 Cancelar ronda
@@ -152,8 +172,12 @@ export function Vote({ kind }: { kind: Kind }) {
                       <button
                         className="link-btn"
                         disabled={busy}
-                        onClick={() =>
-                          confirm(`¿Elegir "${b.title}" ya, sin votación?`) && run(() => api.startBook(b.id))
+                        onClick={async () =>
+                          (await ask({
+                            title: `¿Elegir "${b.title}" ya?`,
+                            message: "Pasará a estar en curso sin votación.",
+                            confirmLabel: "Elegir ya",
+                          })) && run(() => api.startBook(b.id))
                         }
                       >
                         {k.startAction}
@@ -161,7 +185,14 @@ export function Vote({ kind }: { kind: Kind }) {
                       <button
                         className="link-btn"
                         disabled={busy}
-                        onClick={() => confirm(`¿Borrar "${b.title}"?`) && run(() => api.deleteBook(b.id))}
+                        onClick={async () =>
+                          (await ask({
+                            title: `¿Borrar "${b.title}"?`,
+                            message: "No se puede deshacer.",
+                            confirmLabel: "Borrar",
+                            danger: true,
+                          })) && run(() => api.deleteBook(b.id))
+                        }
                       >
                         borrar
                       </button>

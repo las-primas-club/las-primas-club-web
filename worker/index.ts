@@ -405,7 +405,10 @@ app.put("/books/:id/rating", async (c) => {
   const user = requireUser(c);
   const id = idParam(c);
   const { score } = await c.req.json<{ score?: number }>();
-  if (!Number.isInteger(score) || score! < 1 || score! > 5) bad("La puntuación debe ser de 1 a 5");
+  // De 0,5 a 5 en pasos de media estrella
+  if (typeof score !== "number" || !Number.isInteger(score * 2) || score < 0.5 || score > 5) {
+    bad("La puntuación debe ir de 0,5 a 5, en medias estrellas");
+  }
   const book = await c.env.DB.prepare(`SELECT status FROM books WHERE id = ?`).bind(id).first<{ status: string }>();
   if (!book) throw new HTTPException(404, { message: "Libro no encontrado" });
   if (book.status === "proposed") bad("Solo se pueden puntuar libros en curso o leídos");

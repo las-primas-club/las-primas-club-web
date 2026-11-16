@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import type { Book } from "../../shared/types";
-import { formatDate } from "../format";
+import { formatDate, formatScore } from "../format";
 import { KINDS } from "../kinds";
 import { Cover } from "./Cover";
 import { Stars } from "./Stars";
@@ -25,7 +25,7 @@ export function BookCard({ book }: { book: Book }) {
       </p>
       <div className="tile-rating">
         <Stars value={book.avg_rating} size="sm" />
-        <span className="muted small">{book.avg_rating?.toFixed(1) ?? "–"}</span>
+        <span className="muted small">{book.avg_rating != null ? formatScore(book.avg_rating, true) : "–"}</span>
       </div>
       {book.finished_at && <p className="muted small">{formatDate(book.finished_at)}</p>}
     </Link>

@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import type { BookDetail } from "../../shared/types";
 import { api } from "../api";
 import { useAuth } from "../auth";
+import { useConfirm } from "./Dialog";
 
 const MAX_MB = 25;
 
@@ -18,6 +19,7 @@ function bareAddress(from: string) {
 /** Descargar el epub del libro o mandarlo al Kindle. Los admins suben, cambian o quitan el archivo. */
 export function EbookPanel({ book, onChange }: { book: BookDetail; onChange: () => void }) {
   const { user, config, refresh } = useAuth();
+  const ask = useConfirm();
   const fileInput = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -171,8 +173,13 @@ export function EbookPanel({ book, onChange }: { book: BookDetail; onChange: () 
             <button
               className="link-btn"
               disabled={busy}
-              onClick={() =>
-                confirm("¿Quitar el epub de este libro?") &&
+              onClick={async () =>
+                (await ask({
+                  title: "¿Quitar el epub?",
+                  message: "Nadie podrá descargarlo ni enviarlo al Kindle hasta que subas otro.",
+                  confirmLabel: "Quitar epub",
+                  danger: true,
+                })) &&
                 run(async () => {
                   await api.deleteEpub(book.id);
                   onChange();
