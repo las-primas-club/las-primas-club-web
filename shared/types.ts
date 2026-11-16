@@ -74,3 +74,24 @@ export interface BookSuggestion {
   cover_url: string;
   year: string;
 }
+
+export type Role = "member" | "admin";
+
+export interface Member {
+  email: string;
+  role: Role;
+  created_at: string;
+  user_id: number | null;
+  name: string | null;
+  picture: string | null;
+  last_login_at: string | null;
+  /** Admin de emergencia definido en ADMIN_EMAILS: no se puede quitar desde la web. */
+  protected: boolean;
+}
+
+export interface AccessRequest {
+  email: string;
+  name: string;
+  picture: string | null;
+  requested_at: string;
+}

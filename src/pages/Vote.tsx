@@ -107,6 +107,16 @@ export function Vote() {
               >
                 Cerrar votación
               </button>
+              <button
+                className="btn btn-ghost"
+                disabled={busy}
+                onClick={() =>
+                  confirm("¿Cancelar la ronda? Se borrarán sus votos; los libros propuestos se mantienen.") &&
+                  run(() => api.cancelRound(open.id))
+                }
+              >
+                Cancelar ronda
+              </button>
             </div>
           )}
         </section>

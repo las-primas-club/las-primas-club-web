@@ -1,4 +1,4 @@
-import type { AppConfig, Book, BookDetail, BookSuggestion, Round, User } from "../shared/types";
+import type { AccessRequest, AppConfig, Book, BookDetail, BookSuggestion, Member, Role, Round, User } from "../shared/types";
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(`/api${path}`, {
@@ -36,6 +36,19 @@ export const api = {
       if (!r.ok) throw new Error("No se pudo buscar");
       return (await r.json()) as BookSuggestion[];
     }),
+
+  editBook: (id: number, b: { title: string; author: string; description: string | null; cover_url: string | null }) =>
+    request("PATCH", `/books/${id}`, b),
+  cancelRound: (roundId: number) => request("DELETE", `/rounds/${roundId}`),
+
+  admin: {
+    members: () => request<{ members: Member[]; requests: AccessRequest[] }>("GET", "/admin/members"),
+    addMember: (email: string, role: Role) => request("POST", "/admin/members", { email, role }),
+    setRole: (email: string, role: Role) => request("PATCH", `/admin/members/${encodeURIComponent(email)}`, { role }),
+    removeMember: (email: string) => request("DELETE", `/admin/members/${encodeURIComponent(email)}`),
+    approve: (email: string) => request("POST", `/admin/requests/${encodeURIComponent(email)}/approve`),
+    reject: (email: string) => request("DELETE", `/admin/requests/${encodeURIComponent(email)}`),
+  },
 
   currentRound: () => request<Round | null>("GET", "/rounds/current"),
   openRound: () => request("POST", "/rounds"),

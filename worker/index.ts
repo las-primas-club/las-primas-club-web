@@ -1,7 +1,7 @@
 import { Hono, type Context } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { HTTPException } from "hono/http-exception";
-import type { AppConfig, Book, BookDetail, Comment, Rating, Round, User } from "../shared/types";
+import type { AccessRequest, AppConfig, Book, BookDetail, Comment, Member, Rating, Round, User } from "../shared/types";
 import { searchBooks } from "./bookSearch";
 import { newSessionToken, parseEmailList, verifyGoogleToken, type GoogleProfile } from "./auth";
 
@@ -20,14 +20,18 @@ app.use("*", async (c, next) => {
   const token = getCookie(c, SESSION_COOKIE);
   if (token) {
     const row = await c.env.DB.prepare(
-      `SELECT u.id, u.name, u.email, u.picture FROM sessions s
+      `SELECT u.id, u.name, u.email, u.picture, m.role FROM sessions s
        JOIN users u ON u.id = s.user_id
+       LEFT JOIN members m ON m.email = u.email
        WHERE s.id = ? AND s.expires_at > datetime('now')`,
     )
       .bind(token)
-      .first<Omit<User, "isAdmin">>();
-    // Si alguien deja de estar en la lista del club, su sesión deja de valer al momento.
-    if (row && isAllowed(c.env, row.email)) c.set("user", { ...row, isAdmin: isAdmin(c.env, row.email) });
+      .first<Omit<User, "isAdmin"> & { role: string | null }>();
+    // Si alguien deja de ser miembro, su sesión deja de valer al momento.
+    if (row && (row.role || isProtectedAdmin(c.env, row.email))) {
+      const { role, ...user } = row;
+      c.set("user", { ...user, isAdmin: role === "admin" || isProtectedAdmin(c.env, row.email) });
+    }
   }
   await next();
 });
@@ -42,20 +46,15 @@ app.use("*", async (c, next) => {
   await next();
 });
 
-function isAllowed(env: Env, email: string) {
-  const allowed = parseEmailList(env.ALLOWED_EMAILS);
-  const e = email.toLowerCase();
-  return allowed.length === 0 || allowed.includes(e) || parseEmailList(env.ADMIN_EMAILS).includes(e);
+/** Admins de emergencia (secreto ADMIN_EMAILS): siempre pueden entrar y no se pueden quitar desde la web. */
+function isProtectedAdmin(env: Env, email: string) {
+  return parseEmailList(env.ADMIN_EMAILS).includes(email.toLowerCase());
 }
 
 /** Login de desarrollo: solo con DEV_LOGIN=true y desde localhost. */
 function devLoginEnabled(c: Ctx) {
   const host = new URL(c.req.url).hostname;
   return c.env.DEV_LOGIN === "true" && (host === "localhost" || host === "127.0.0.1");
-}
-
-function isAdmin(env: Env, email: string) {
-  return parseEmailList(env.ADMIN_EMAILS).includes(email.toLowerCase());
 }
 
 function requireUser(c: Ctx): User {
@@ -93,12 +92,28 @@ function text(value: unknown, field: string, max: number, required = true): stri
 }
 
 async function loginAs(c: Ctx, profile: GoogleProfile) {
-  if (!isAllowed(c.env, profile.email)) {
-    throw new HTTPException(403, { message: "Este email no está en la lista del club. Pide que te añadan." });
+  if (isProtectedAdmin(c.env, profile.email)) {
+    await c.env.DB.prepare(`INSERT INTO members (email, role) VALUES (?, 'admin') ON CONFLICT (email) DO UPDATE SET role = 'admin'`)
+      .bind(profile.email)
+      .run();
+  }
+  const member = await c.env.DB.prepare(`SELECT 1 FROM members WHERE email = ?`).bind(profile.email).first();
+  if (!member) {
+    // No es miembro: guardamos la solicitud para que un admin la acepte o la rechace.
+    await c.env.DB.prepare(
+      `INSERT INTO access_requests (email, name, picture) VALUES (?, ?, ?)
+       ON CONFLICT (email) DO UPDATE SET name = excluded.name, picture = excluded.picture, requested_at = datetime('now')`,
+    )
+      .bind(profile.email, profile.name, profile.picture)
+      .run();
+    throw new HTTPException(403, {
+      message: "Todavía no eres miembro del club. Tu solicitud ha quedado registrada: en cuanto un admin la acepte, podrás entrar.",
+    });
   }
   const user = await c.env.DB.prepare(
-    `INSERT INTO users (google_sub, email, name, picture) VALUES (?, ?, ?, ?)
-     ON CONFLICT (google_sub) DO UPDATE SET email = excluded.email, name = excluded.name, picture = excluded.picture
+    `INSERT INTO users (google_sub, email, name, picture, last_login_at) VALUES (?, ?, ?, ?, datetime('now'))
+     ON CONFLICT (google_sub) DO UPDATE SET email = excluded.email, name = excluded.name, picture = excluded.picture,
+       last_login_at = datetime('now')
      RETURNING id`,
   )
     .bind(profile.sub, profile.email, profile.name, profile.picture)
@@ -225,15 +240,21 @@ app.get("/books/:id", async (c) => {
   return c.json(book);
 });
 
+function bookFields(body: Record<string, unknown>) {
+  const cover = text(body.cover_url, "portada", 500, false);
+  if (cover && !/^https:\/\//.test(cover)) bad("La portada debe ser una URL https://");
+  return {
+    title: text(body.title, "título", 200),
+    author: text(body.author, "autor", 200),
+    description: text(body.description, "descripción", 2000, false),
+    cover,
+  };
+}
+
 /** Proponer un libro. Si hay una ronda abierta, entra directamente como candidato. */
 app.post("/books", async (c) => {
   const user = requireUser(c);
-  const body = await c.req.json<Record<string, unknown>>();
-  const title = text(body.title, "título", 200);
-  const author = text(body.author, "autor", 200);
-  const description = text(body.description, "descripción", 2000, false);
-  const cover = text(body.cover_url, "portada", 500, false);
-  if (cover && !/^https:\/\//.test(cover)) bad("La portada debe ser una URL https://");
+  const { title, author, description, cover } = bookFields(await c.req.json<Record<string, unknown>>());
 
   const book = await c.env.DB.prepare(
     `INSERT INTO books (title, author, description, cover_url, proposed_by) VALUES (?, ?, ?, ?, ?) RETURNING id`,
@@ -248,7 +269,7 @@ app.post("/books", async (c) => {
   return c.json({ id: book!.id }, 201);
 });
 
-/** Borrar una propuesta (quien la propuso o admin), solo si aún no se ha leído. */
+/** Borrar un libro. Quien lo propuso puede borrar su propuesta; un admin, cualquier libro (con sus votos, notas y comentarios). */
 app.delete("/books/:id", async (c) => {
   const user = requireUser(c);
   const id = idParam(c);
@@ -256,9 +277,23 @@ app.delete("/books/:id", async (c) => {
     .bind(id)
     .first<{ status: string; proposed_by: number | null }>();
   if (!book) throw new HTTPException(404, { message: "Libro no encontrado" });
-  if (book.status !== "proposed") bad("Solo se pueden borrar libros propuestos");
-  if (!user.isAdmin && book.proposed_by !== user.id) throw new HTTPException(403, { message: "No es tu propuesta" });
+  if (!user.isAdmin) {
+    if (book.status !== "proposed") bad("Solo se pueden borrar libros propuestos");
+    if (book.proposed_by !== user.id) throw new HTTPException(403, { message: "No es tu propuesta" });
+  }
   await c.env.DB.prepare(`DELETE FROM books WHERE id = ?`).bind(id).run();
+  return c.json({ ok: true });
+});
+
+/** Admin: editar los datos de un libro. */
+app.patch("/books/:id", async (c) => {
+  requireAdmin(c);
+  const id = idParam(c);
+  const { title, author, description, cover } = bookFields(await c.req.json<Record<string, unknown>>());
+  const res = await c.env.DB.prepare(`UPDATE books SET title = ?, author = ?, description = ?, cover_url = ? WHERE id = ?`)
+    .bind(title, author, description, cover, id)
+    .run();
+  if (!res.meta.changes) throw new HTTPException(404, { message: "Libro no encontrado" });
   return c.json({ ok: true });
 });
 
@@ -411,6 +446,99 @@ app.post("/rounds/:id/close", async (c) => {
     ).bind(winner.book.id, round.id),
   ]);
   return c.json({ winnerId: winner.book.id });
+});
+
+/** Admin: cancelar la ronda abierta. Se borran sus votos; las propuestas siguen para la próxima. */
+app.delete("/rounds/:id", async (c) => {
+  requireAdmin(c);
+  const res = await c.env.DB.prepare(`DELETE FROM rounds WHERE id = ? AND status = 'open'`).bind(idParam(c)).run();
+  if (!res.meta.changes) bad("Solo se puede cancelar una ronda abierta");
+  return c.json({ ok: true });
+});
+
+// ---------- Administración de miembros ----------
+
+const ROLES = new Set(["member", "admin"]);
+
+function emailParam(c: Ctx) {
+  const email = decodeURIComponent(c.req.param("email") ?? "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) bad("Email no válido");
+  return email;
+}
+
+app.get("/admin/members", async (c) => {
+  requireAdmin(c);
+  const [members, requests] = await c.env.DB.batch([
+    c.env.DB.prepare(
+      `SELECT m.email, m.role, m.created_at, u.id AS user_id, u.name, u.picture, u.last_login_at
+       FROM members m LEFT JOIN users u ON u.email = m.email
+       ORDER BY m.role = 'admin' DESC, COALESCE(u.name, m.email) COLLATE NOCASE`,
+    ),
+    c.env.DB.prepare(`SELECT email, name, picture, requested_at FROM access_requests ORDER BY requested_at DESC`),
+  ]);
+  return c.json({
+    members: (members.results as unknown as Member[]).map((m) => ({ ...m, protected: isProtectedAdmin(c.env, m.email) })),
+    requests: requests.results as unknown as AccessRequest[],
+  });
+});
+
+app.post("/admin/members", async (c) => {
+  const admin = requireAdmin(c);
+  const body = await c.req.json<{ email?: string; role?: string }>();
+  const email = text(body.email, "email", 200)!.toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) bad("Email no válido");
+  const role = body.role ?? "member";
+  if (!ROLES.has(role)) bad("Rol no válido");
+  const exists = await c.env.DB.prepare(`SELECT 1 FROM members WHERE email = ?`).bind(email).first();
+  if (exists) bad("Ese email ya es miembro");
+  await c.env.DB.batch([
+    c.env.DB.prepare(`INSERT INTO members (email, role, added_by) VALUES (?, ?, ?)`).bind(email, role, admin.id),
+    c.env.DB.prepare(`DELETE FROM access_requests WHERE email = ?`).bind(email),
+  ]);
+  return c.json({ ok: true }, 201);
+});
+
+app.patch("/admin/members/:email", async (c) => {
+  const admin = requireAdmin(c);
+  const email = emailParam(c);
+  const { role } = await c.req.json<{ role?: string }>();
+  if (!role || !ROLES.has(role)) bad("Rol no válido");
+  if (email === admin.email.toLowerCase() && role !== "admin") bad("No puedes quitarte el rol de admin a ti mismo");
+  if (isProtectedAdmin(c.env, email) && role !== "admin") bad("Es admin de emergencia (ADMIN_EMAILS): cámbialo en Cloudflare");
+  const res = await c.env.DB.prepare(`UPDATE members SET role = ? WHERE email = ?`).bind(role, email).run();
+  if (!res.meta.changes) throw new HTTPException(404, { message: "Miembro no encontrado" });
+  return c.json({ ok: true });
+});
+
+/** Quitar a un miembro: pierde el acceso al momento. Sus comentarios y notas se conservan. */
+app.delete("/admin/members/:email", async (c) => {
+  const admin = requireAdmin(c);
+  const email = emailParam(c);
+  if (email === admin.email.toLowerCase()) bad("No puedes quitarte a ti mismo");
+  if (isProtectedAdmin(c.env, email)) bad("Es admin de emergencia (ADMIN_EMAILS): quítalo en Cloudflare");
+  await c.env.DB.batch([
+    c.env.DB.prepare(`DELETE FROM members WHERE email = ?`).bind(email),
+    c.env.DB.prepare(`DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE email = ?)`).bind(email),
+  ]);
+  return c.json({ ok: true });
+});
+
+app.post("/admin/requests/:email/approve", async (c) => {
+  const admin = requireAdmin(c);
+  const email = emailParam(c);
+  const req = await c.env.DB.prepare(`SELECT 1 FROM access_requests WHERE email = ?`).bind(email).first();
+  if (!req) throw new HTTPException(404, { message: "Solicitud no encontrada" });
+  await c.env.DB.batch([
+    c.env.DB.prepare(`INSERT OR IGNORE INTO members (email, role, added_by) VALUES (?, 'member', ?)`).bind(email, admin.id),
+    c.env.DB.prepare(`DELETE FROM access_requests WHERE email = ?`).bind(email),
+  ]);
+  return c.json({ ok: true });
+});
+
+app.delete("/admin/requests/:email", async (c) => {
+  requireAdmin(c);
+  await c.env.DB.prepare(`DELETE FROM access_requests WHERE email = ?`).bind(emailParam(c)).run();
+  return c.json({ ok: true });
 });
 
 // ---------- Errores ----------

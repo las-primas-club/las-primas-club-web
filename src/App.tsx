@@ -2,6 +2,7 @@ import { NavLink, Route, Routes } from "react-router";
 import { useAuth } from "./auth";
 import { LoginScreen } from "./components/LoginScreen";
 import { ANNOUNCEMENT, CLUB_NAME } from "./content";
+import { Admin } from "./pages/Admin";
 import { BookPage } from "./pages/BookPage";
 import { CurrentBook } from "./pages/CurrentBook";
 import { Home } from "./pages/Home";
@@ -41,6 +42,7 @@ export function App() {
             <NavLink to="/actual">Libro actual</NavLink>
             <NavLink to="/votacion">Votación</NavLink>
             <NavLink to="/leidos">Leídos</NavLink>
+            {user.isAdmin && <NavLink to="/admin">Admin</NavLink>}
           </div>
         </nav>
       </header>
@@ -51,6 +53,7 @@ export function App() {
           <Route path="/votacion" element={<Vote />} />
           <Route path="/leidos" element={<ReadBooks />} />
           <Route path="/libros/:id" element={<BookPage />} />
+          <Route path="/admin" element={<Admin />} />
           <Route path="*" element={<p>Página no encontrada.</p>} />
         </Routes>
       </main>

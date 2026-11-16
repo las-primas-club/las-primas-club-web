@@ -61,13 +61,18 @@ Copia el `database_id` que devuelve en `wrangler.jsonc`.
 
 ### 3. Quién puede entrar y quién administra
 
-```bash
-npx wrangler secret put ALLOWED_EMAILS   # p. ej. ana@gmail.com,luis@gmail.com,...
-npx wrangler secret put ADMIN_EMAILS     # quienes abren y cierran votaciones
-```
+Solo entran los **miembros**, que se gestionan desde la propia web en **Admin → Miembros**:
 
-Si `ALLOWED_EMAILS` está vacío, cualquiera con cuenta de Google puede entrar. Los emails de `ADMIN_EMAILS`
-siempre tienen acceso.
+- Añadir a alguien por su email de Google, como *miembro* o *admin*.
+- Si alguien que no es miembro intenta entrar, queda una **solicitud de acceso** que un admin acepta o rechaza.
+- Cambiar roles o quitar a alguien (pierde el acceso al momento; sus comentarios se conservan).
+
+Quien ya había entrado antes de la migración `0002_members.sql` pasa a ser admin. Como red de seguridad, los emails del
+secreto opcional `ADMIN_EMAILS` son siempre admins y no se pueden quitar desde la web:
+
+```bash
+npx wrangler secret put ADMIN_EMAILS     # opcional, p. ej. tu-email@gmail.com
+```
 
 ### 4. Desplegar
 
@@ -98,7 +103,7 @@ No actives también *Workers Builds* en Cloudflare, o se desplegaría dos veces.
 - **Proponer**: cualquier miembro propone libros en *Votación*. Si hay una ronda abierta, entran como candidatos;
   si no, entran en la siguiente.
 - **Votar**: un voto por persona y ronda; se puede cambiar mientras siga abierta.
-- **Admin**: abre la ronda y la cierra (el más votado pasa a ser el libro en curso y el anterior se marca como leído).
+- **Admin** (panel en `/admin`): gestiona miembros, edita o borra libros y abre, cierra o cancela rondas. Abre la ronda y la cierra (el más votado pasa a ser el libro en curso y el anterior se marca como leído).
   También puede marcar un libro como terminado o empezar uno sin votación (*leer ya*, útil para el primer libro).
 - **Puntuar y comentar**: en el libro en curso y en cualquier libro leído.
 

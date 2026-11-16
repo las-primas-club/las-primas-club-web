@@ -28,8 +28,7 @@
 		"GOOGLE_CLIENT_ID": "48926094831-jee1eqjs1p88r4dso557gmqbr4p7e2lc.apps.googleusercontent.com"
 	},
 	// Secretos (configurar con `npx wrangler secret put NOMBRE`):
-	//   ALLOWED_EMAILS: emails permitidos separados por comas (vacío = cualquiera con Google)
-	//   ADMIN_EMAILS:   emails que pueden gestionar libros y rondas
+	//   ADMIN_EMAILS (opcional): admins de emergencia, siempre pueden entrar. Los miembros se gestionan en /admin.
 	//   GOOGLE_BOOKS_API_KEY (opcional): clave gratuita de Google Books para buscar libros
 	"observability": {
 		"enabled": true
