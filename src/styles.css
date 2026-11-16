@@ -571,3 +571,10 @@ select {
 @media (prefers-reduced-motion: reduce) {
   .modal[open], .modal[open]::backdrop { animation: none; }
 }
+.comment-edit { margin-top: 8px; align-items: stretch; }
+.comment-edit textarea { width: 100%; }
+.comment-edit-actions { display: flex; gap: 10px; }
+@media (max-width: 640px) {
+  .comment-edit-actions .btn { flex: 1; width: auto; }
+}
+.comment-actions { margin-left: auto; display: inline-flex; gap: 2px; white-space: nowrap; }

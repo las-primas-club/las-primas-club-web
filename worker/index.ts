@@ -285,7 +285,7 @@ async function bookDetail(c: Ctx, where: string, ...params: unknown[]): Promise<
        WHERE r.book_id = ? ORDER BY r.updated_at`,
     ).bind(book.id),
     c.env.DB.prepare(
-      `SELECT c.id, c.body, c.created_at, u.id AS user_id, u.name AS user_name, u.picture AS user_picture
+      `SELECT c.id, c.body, c.created_at, c.edited_at, u.id AS user_id, u.name AS user_name, u.picture AS user_picture
        FROM comments c JOIN users u ON u.id = c.user_id WHERE c.book_id = ? ORDER BY c.created_at`,
     ).bind(book.id),
   ]);
@@ -421,6 +421,13 @@ app.put("/books/:id/rating", async (c) => {
   return c.json({ ok: true });
 });
 
+/** Quitar mi puntuación. */
+app.delete("/books/:id/rating", async (c) => {
+  const user = requireUser(c);
+  await c.env.DB.prepare(`DELETE FROM ratings WHERE book_id = ? AND user_id = ?`).bind(idParam(c), user.id).run();
+  return c.json({ ok: true });
+});
+
 app.post("/books/:id/comments", async (c) => {
   const user = requireUser(c);
   const id = idParam(c);
@@ -431,6 +438,20 @@ app.post("/books/:id/comments", async (c) => {
     .bind(id, user.id, body)
     .run();
   return c.json({ ok: true }, 201);
+});
+
+/** Editar un comentario: solo quien lo escribió. */
+app.patch("/comments/:id", async (c) => {
+  const user = requireUser(c);
+  const id = idParam(c);
+  const body = text((await c.req.json<{ body?: string }>()).body, "comentario", 4000);
+  const comment = await c.env.DB.prepare(`SELECT user_id FROM comments WHERE id = ?`)
+    .bind(id)
+    .first<{ user_id: number }>();
+  if (!comment) throw new HTTPException(404, { message: "Comentario no encontrado" });
+  if (comment.user_id !== user.id) throw new HTTPException(403, { message: "Solo puedes editar tus comentarios" });
+  await c.env.DB.prepare(`UPDATE comments SET body = ?, edited_at = datetime('now') WHERE id = ?`).bind(body, id).run();
+  return c.json({ ok: true });
 });
 
 app.delete("/comments/:id", async (c) => {

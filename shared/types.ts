@@ -39,6 +39,8 @@ export interface Comment {
   id: number;
   body: string;
   created_at: string;
+  /** Fecha de la última edición, si se editó. */
+  edited_at: string | null;
   user_id: number;
   user_name: string;
   user_picture: string | null;

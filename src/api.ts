@@ -42,7 +42,9 @@ export const api = {
   finishBook: (id: number) => request("POST", `/books/${id}/finish`),
   rate: (id: number, score: number) => request("PUT", `/books/${id}/rating`, { score }),
   comment: (id: number, body: string) => request("POST", `/books/${id}/comments`, { body }),
+  editComment: (id: number, body: string) => request("PATCH", `/comments/${id}`, { body }),
   deleteComment: (id: number) => request("DELETE", `/comments/${id}`),
+  unrate: (id: number) => request("DELETE", `/books/${id}/rating`),
 
   epubUrl: (id: number) => `/api/books/${id}/epub`,
   uploadEpub: (id: number, file: File) =>
