@@ -2,7 +2,7 @@ import { Hono, type Context } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { HTTPException } from "hono/http-exception";
 import type { AccessRequest, AppConfig, Book, BookDetail, Comment, Kind, Member, Rating, Round, User } from "../shared/types";
-import { searchBooks } from "./bookSearch";
+import { bookDescription, searchBooks } from "./bookSearch";
 import { searchMovies } from "./movieSearch";
 import {
   KINDLE_ADDRESS,
@@ -237,6 +237,17 @@ app.get("/search", async (c) => {
   } catch (e) {
     console.error("Búsqueda de libros falló", e);
     throw new HTTPException(502, { message: "No se pudo buscar ahora mismo" });
+  }
+});
+
+/** Sinopsis de un libro elegido en la búsqueda (Open Library no la da en la lista de resultados). */
+app.get("/search/description", async (c) => {
+  const key = (c.req.query("key") ?? "").slice(0, 200);
+  try {
+    return c.json({ description: await bookDescription(key) });
+  } catch (e) {
+    console.warn("No se pudo obtener la sinopsis", e);
+    return c.json({ description: "" });
   }
 });
 

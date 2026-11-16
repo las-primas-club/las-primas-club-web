@@ -17,6 +17,7 @@ export function ProposeForm({ kind, onDone }: { kind: Kind; onDone: () => unknow
   const [searchError, setSearchError] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY);
   const [picked, setPicked] = useState(false);
+  const [loadingDescription, setLoadingDescription] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -53,6 +54,17 @@ export function ProposeForm({ kind, onDone }: { kind: Kind; onDone: () => unknow
     setResults([]);
     setQuery("");
     setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 0);
+    // Open Library no trae la sinopsis en la búsqueda: la pedimos aparte al elegir el libro.
+    if (!s.description && s.key.startsWith("ol:")) {
+      setLoadingDescription(true);
+      api
+        .bookDescription(s.key)
+        .then((description) => {
+          if (description) setForm((f) => (f.title === s.title && !f.description ? { ...f, description } : f));
+        })
+        .catch(() => {})
+        .finally(() => setLoadingDescription(false));
+    }
   };
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -118,6 +130,7 @@ export function ProposeForm({ kind, onDone }: { kind: Kind; onDone: () => unknow
         </label>
         <label className="full">
           Sinopsis o por qué lo propones <span className="muted">(opcional)</span>
+          {loadingDescription && <span className="muted small"> · buscando sinopsis…</span>}
           <textarea rows={4} value={form.description} onChange={set("description")} maxLength={2000} />
         </label>
         <label className="full">

@@ -74,9 +74,17 @@ secreto opcional `ADMIN_EMAILS` son siempre admins y no se pueden quitar desde l
 npx wrangler secret put ADMIN_EMAILS     # opcional, p. ej. tu-email@gmail.com
 ```
 
-### 4. Buscar películas (opcional, gratis)
+### 4. Buscar libros y películas (opcional, gratis)
 
-Al proponer una película se busca en [TMDB](https://www.themoviedb.org) y se rellenan solos póster, año, dirección y
+**Libros**: sin configurar nada se busca en Open Library. Al elegir un resultado se pide aparte su sinopsis (no todas
+las obras la tienen). Con una clave gratuita de Google Books (1.000 búsquedas/día) hay más sinopsis en español:
+Google Cloud → crea un proyecto → *APIs y servicios* → activa **Books API** → *Credenciales* → **Crear clave de API**.
+
+```bash
+npx wrangler secret put GOOGLE_BOOKS_API_KEY
+```
+
+**Películas**: al proponer una película se busca en [TMDB](https://www.themoviedb.org) y se rellenan solos póster, año, dirección y
 sinopsis. Crea una cuenta gratuita → **Ajustes → API** → pide una clave (uso personal / no comercial) y guárdala:
 
 ```bash

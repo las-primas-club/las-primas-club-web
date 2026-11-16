@@ -64,6 +64,8 @@ export const api = {
       return (await r.json()) as BookSuggestion[];
     }),
 
+  bookDescription: (key: string) =>
+    request<{ description: string }>("GET", `/search/description?key=${encodeURIComponent(key)}`).then((r) => r.description),
   editBook: (id: number, b: BookInput) => request("PATCH", `/books/${id}`, b),
   cancelRound: (roundId: number) => request("DELETE", `/rounds/${roundId}`),
 

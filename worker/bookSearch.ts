@@ -63,18 +63,22 @@ interface OpenLibraryDoc {
   author_name?: string[];
   cover_i?: number;
   first_publish_year?: number;
+  editions?: { docs?: { key: string }[] };
 }
+
+const OL_HEADERS = { "User-Agent": "LasPrimasClub/1.0 (book club site)" };
 
 async function searchOpenLibrary(query: string): Promise<BookSuggestion[]> {
   const url = new URL("https://openlibrary.org/search.json");
   url.searchParams.set("q", query);
   url.searchParams.set("limit", "8");
-  url.searchParams.set("fields", "key,title,author_name,cover_i,first_publish_year");
-  const res = await fetch(url, { cf: CACHE, headers: { "User-Agent": "LasPrimasClub/1.0 (book club site)" } });
+  url.searchParams.set("fields", "key,title,author_name,cover_i,first_publish_year,editions,editions.key");
+  const res = await fetch(url, { cf: CACHE, headers: OL_HEADERS });
   if (!res.ok) throw new Error(`Open Library ${res.status}`);
   const data = (await res.json()) as { docs?: OpenLibraryDoc[] };
   return (data.docs ?? []).map((d) => ({
-    key: `ol:${d.key}`,
+    // La búsqueda no trae sinopsis: la clave lleva la obra y la edición que mejor encaja para pedirla luego.
+    key: `ol:${d.key}${d.editions?.docs?.[0]?.key ? `|${d.editions.docs[0].key}` : ""}`,
     title: d.title,
     author: (d.author_name ?? []).slice(0, 3).join(", "),
     description: "",
@@ -93,4 +97,32 @@ export async function searchBooks(query: string, googleKey: string | undefined):
     }
   }
   return searchOpenLibrary(query);
+}
+
+// ---------- Sinopsis de un resultado ----------
+
+/** Open Library guarda la sinopsis como texto o como { value }, a veces con enlaces de fuente al final. */
+function openLibraryText(value: unknown): string {
+  const raw = typeof value === "string" ? value : (value as { value?: string } | undefined)?.value ?? "";
+  const body = raw
+    .split(/\n-{3,}\n|\(\[source\]|\[source\]/i)[0]
+    .replace(/^\s*\[\d+\]:.*$/gm, "")
+    .replace(/\[([^\]]+)\]\[\d+\]/g, "$1")
+    .replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, "$1")
+    .replace(/(\*\*|\*|__|_)(\S(?:.*?\S)?)\1/g, "$2"); // *cursiva* y **negrita** de Markdown
+  return clean(body);
+}
+
+async function openLibraryDescription(path: string): Promise<string> {
+  if (!/^\/(works|books)\/OL\d+[WM]$/.test(path)) return "";
+  const res = await fetch(`https://openlibrary.org${path}.json`, { cf: CACHE, headers: OL_HEADERS });
+  if (!res.ok) return "";
+  return openLibraryText(((await res.json()) as { description?: unknown }).description);
+}
+
+/** Sinopsis de un resultado de búsqueda de Open Library: la de la obra o, si no tiene, la de la edición. */
+export async function bookDescription(key: string): Promise<string> {
+  if (!key.startsWith("ol:")) return "";
+  const [work, edition] = key.slice(3).split("|");
+  return (await openLibraryDescription(work)) || (edition ? await openLibraryDescription(edition) : "");
 }
