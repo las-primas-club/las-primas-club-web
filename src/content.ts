@@ -2,6 +2,8 @@
 
 export const CLUB_NAME = "Las Primas Club";
 
+export const ANNOUNCEMENT = "¡Gracias por leer con Las Primas! 📚";
+
 export const INTRO = {
   tagline: "Un club de lectura entre amigos, libros y sobremesas largas.",
   paragraphs: [

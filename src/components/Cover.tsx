@@ -1,7 +1,7 @@
 import type { Book } from "../../shared/types";
 
 /** Portada del libro, o una portada generada si no hay imagen. */
-export function Cover({ book, size = "md" }: { book: Pick<Book, "title" | "author" | "cover_url">; size?: "sm" | "md" | "lg" }) {
+export function Cover({ book, size = "md" }: { book: Pick<Book, "title" | "author" | "cover_url">; size?: "sm" | "md" | "lg" | "xl" }) {
   if (book.cover_url) {
     return <img className={`cover cover-${size}`} src={book.cover_url} alt={`Portada de ${book.title}`} loading="lazy" />;
   }

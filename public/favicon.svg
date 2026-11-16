@@ -1,1 +1,49 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#7a2e3a"/><path d="M14 18c7-3 13-2 18 2v28c-5-4-11-5-18-2zM50 18c-7-3-13-2-18 2v28c5-4 11-5 18-2z" fill="#f6efe4"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Las Primas Club">
+  <!-- Fondo -->
+  <rect width="512" height="512" rx="112" fill="#5a4ff5"/>
+
+  <!-- Cuernos -->
+  <path d="M226 178 C206 124 172 92 132 86 C164 112 182 146 192 192 Z" fill="#e2b45c"/>
+  <path d="M286 178 C306 124 340 92 380 86 C348 112 330 146 320 192 Z" fill="#e2b45c"/>
+
+  <!-- Orejas -->
+  <path d="M200 220 C166 204 126 208 98 230 C128 252 168 254 202 242 Z" fill="#f6efe4"/>
+  <path d="M190 225 C164 216 138 218 120 230 C140 244 166 245 190 238 Z" fill="#e7a9a9"/>
+  <path d="M312 220 C346 204 386 208 414 230 C384 252 344 254 310 242 Z" fill="#f6efe4"/>
+  <path d="M322 225 C348 216 374 218 392 230 C372 244 346 245 322 238 Z" fill="#e7a9a9"/>
+
+  <!-- Cabeza -->
+  <path d="M256 162 C304 162 326 198 322 252 C318 312 296 356 256 368 C216 356 194 312 190 252 C186 198 208 162 256 162 Z" fill="#f6efe4"/>
+  <!-- Mechón -->
+  <path d="M232 170 C240 150 272 150 280 170 C270 162 262 168 256 176 C250 168 242 162 232 170 Z" fill="#f6efe4"/>
+
+  <!-- Gafas de lectura -->
+  <g fill="none" stroke="#2b211d" stroke-width="8">
+    <circle cx="226" cy="256" r="24"/>
+    <circle cx="286" cy="256" r="24"/>
+    <path d="M250 254 C254 248 258 248 262 254"/>
+  </g>
+  <!-- Ojos (pupila horizontal, como las cabras) -->
+  <rect x="215" y="252" width="22" height="8" rx="4" fill="#2b211d"/>
+  <rect x="275" y="252" width="22" height="8" rx="4" fill="#2b211d"/>
+
+  <!-- Hocico -->
+  <path d="M228 312 C236 340 276 340 284 312 C278 352 234 352 228 312 Z" fill="#ead9c4"/>
+  <ellipse cx="243" cy="318" rx="4" ry="9" transform="rotate(-28 243 318)" fill="#5a4ff5"/>
+  <ellipse cx="269" cy="318" rx="4" ry="9" transform="rotate(28 269 318)" fill="#5a4ff5"/>
+  <path d="M246 338 C252 344 260 344 266 338" fill="none" stroke="#5a4ff5" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- Libro abierto -->
+  <path d="M256 384 C212 356 152 350 92 366 L92 444 C152 430 212 434 256 462 C300 434 360 430 420 444 L420 366 C360 350 300 356 256 384 Z" fill="#e2b45c"/>
+  <path d="M256 372 C214 346 158 340 104 354 L104 428 C158 416 214 420 256 446 Z" fill="#fffaf3"/>
+  <path d="M256 372 C298 346 354 340 408 354 L408 428 C354 416 298 420 256 446 Z" fill="#f6efe4"/>
+  <path d="M256 372 L256 446" stroke="#c9b9a6" stroke-width="4"/>
+  <g fill="none" stroke="#d8c8b4" stroke-width="5" stroke-linecap="round">
+    <path d="M130 376 C164 368 200 370 232 384"/>
+    <path d="M130 398 C164 390 200 392 232 406"/>
+    <path d="M382 376 C348 368 312 370 280 384"/>
+    <path d="M382 398 C348 390 312 392 280 406"/>
+  </g>
+  <!-- Barba (por encima del libro) -->
+  <path d="M240 352 C244 376 250 394 256 404 C262 394 268 376 272 352 C262 358 250 358 240 352 Z" fill="#ead9c4"/>
+</svg>

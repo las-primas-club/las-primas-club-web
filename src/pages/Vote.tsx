@@ -32,8 +32,8 @@ export function Vote() {
   const winner = round?.status === "closed" ? round.candidates.find((c) => c.book.id === round.winner_book_id) : null;
 
   return (
-    <div className="vote-page">
-      <h1>Votación</h1>
+    <div className="vote-page page">
+      <h1 className="page-title">Votación</h1>
       {loadError && <p className="error">{loadError}</p>}
       {error && <p className="error">{error}</p>}
 
@@ -51,9 +51,10 @@ export function Vote() {
               const pct = open.voters ? Math.round((votes / open.voters) * 100) : 0;
               const mine = open.my_vote === book.id;
               return (
-                <li key={book.id} className={`candidate card ${mine ? "is-mine" : ""}`}>
+                <li key={book.id} className={`candidate ${mine ? "is-mine" : ""}`}>
                   <Cover book={book} size="sm" />
                   <div className="candidate-info">
+                    {mine && <span className="pill pill-accent">✔ Tu voto</span>}
                     <h3>{book.title}</h3>
                     <p className="muted">
                       {book.author}
@@ -109,7 +110,7 @@ export function Vote() {
           )}
         </section>
       ) : (
-        <section className="card">
+        <section className="panel">
           {winner ? (
             <p>
               La última votación la ganó <Link to={`/libros/${winner.book.id}`}>{winner.book.title}</Link> con {winner.votes}{" "}
@@ -162,8 +163,8 @@ export function Vote() {
         </section>
       )}
 
-      <section className="card">
-        <h2>Proponer un libro</h2>
+      <section className="detail-section">
+        <h2 className="rule-title">Proponer un libro</h2>
         <RequireLogin message="Entra para proponer libros.">
           <ProposeForm onDone={reload} />
         </RequireLogin>

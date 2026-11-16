@@ -53,7 +53,9 @@ Copia el `database_id` que devuelve en `wrangler.jsonc`.
 2. **Credenciales → Crear credenciales → ID de cliente de OAuth → Aplicación web**.
 3. En **Orígenes de JavaScript autorizados** añade:
    - `http://localhost:5173` y `http://localhost` (para desarrollo)
-   - la URL de producción, p. ej. `https://las-primas-club.<tu-subdominio>.workers.dev`
+   - la URL de producción: `https://las-primas-club.rdvl.net`
+   - Al publicar la app, el logo y los enlaces de dominio son opcionales. Subir un logo obliga a una
+     verificación de marca de Google que tarda días; si algún día se quiere, está en `branding/logo-google-120.png`.
 4. Copia el *Client ID* (`xxxx.apps.googleusercontent.com`) en `GOOGLE_CLIENT_ID` dentro de `wrangler.jsonc`
    (es público, no es un secreto). Para probar Google en local, ponlo también en `.dev.vars`.
 

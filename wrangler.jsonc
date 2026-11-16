@@ -1,28 +1,36 @@
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "las-primas-club",
-  "main": "worker/index.ts",
-  "compatibility_date": "2026-11-01",
-  // La web (React) se sirve como assets estáticos; /api/* lo atiende el Worker.
-  "assets": {
-    "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*"]
-  },
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "las-primas-club",
-      // Sustituir por el id que devuelve `npx wrangler d1 create las-primas-club`
-      "database_id": "00000000-0000-0000-0000-000000000000",
-      "migrations_dir": "migrations"
-    }
-  ],
-  "vars": {
-    // Client ID público de Google OAuth (no es secreto).
-    "GOOGLE_CLIENT_ID": ""
-  },
-  // Secretos (configurar con `npx wrangler secret put NOMBRE`):
-  //   ALLOWED_EMAILS: emails permitidos separados por comas (vacío = cualquiera con Google)
-  //   ADMIN_EMAILS:   emails que pueden gestionar libros y rondas
-  "observability": { "enabled": true }
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "las-primas-club",
+	"main": "worker/index.ts",
+	"compatibility_date": "2026-11-01",
+	// La web (React) se sirve como assets estáticos; /api/* lo atiende el Worker.
+	"assets": {
+		"not_found_handling": "single-page-application",
+		"run_worker_first": [
+			"/api/*"
+		]
+	},
+	// Dominio propio (la zona rdvl.net debe estar en esta cuenta de Cloudflare).
+	// Cloudflare crea el DNS y el certificado HTTPS automáticamente, gratis.
+	"routes": [
+		{ "pattern": "las-primas-club.rdvl.net", "custom_domain": true }
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "las-primas-club-d1",
+			"database_id": "357d8360-03ad-47de-bbd4-bc107d146f4b",
+			"migrations_dir": "migrations"
+		}
+	],
+	"vars": {
+		// Client ID público de Google OAuth (no es secreto).
+		"GOOGLE_CLIENT_ID": "48926094831-jee1eqjs1p88r4dso557gmqbr4p7e2lc.apps.googleusercontent.com"
+	},
+	// Secretos (configurar con `npx wrangler secret put NOMBRE`):
+	//   ALLOWED_EMAILS: emails permitidos separados por comas (vacío = cualquiera con Google)
+	//   ADMIN_EMAILS:   emails que pueden gestionar libros y rondas
+	"observability": {
+		"enabled": true
+	}
 }

@@ -9,7 +9,7 @@ export function CurrentBook() {
   if (error) return <p className="error">{error}</p>;
   if (!book) {
     return (
-      <div className="empty">
+      <div className="empty page">
         <h1>Ningún libro en curso</h1>
         <p>
           Cuando se cierre la <Link to="/votacion">votación</Link>, el libro ganador aparecerá aquí.

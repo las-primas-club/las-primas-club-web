@@ -35,71 +35,96 @@ export function BookDetailView({ book, onChange }: { book: BookDetail; onChange:
     });
   };
 
+  const dates = [
+    book.started_at && `Empezado el ${formatDate(book.started_at)}`,
+    book.finished_at && `terminado el ${formatDate(book.finished_at)}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
     <article className="book-detail">
-      <header className="book-hero">
-        <Cover book={book} size="lg" />
-        <div className="book-hero-info">
-          <p className="eyebrow">
-            {book.status === "current" ? "Leyendo ahora" : book.status === "read" ? "Leído" : "Propuesto"}
-            {book.started_at && ` · desde el ${formatDate(book.started_at)}`}
-            {book.finished_at && ` · terminado el ${formatDate(book.finished_at)}`}
-          </p>
-          <h1>{book.title}</h1>
-          <p className="author">{book.author}</p>
-          {book.description && <p className="description">{book.description}</p>}
-          <div className="rating-summary">
-            <Stars value={book.avg_rating} size="lg" />
-            <span>
-              {book.avg_rating != null ? (
-                <>
-                  <strong>{book.avg_rating.toFixed(1)}</strong> · {book.rating_count} puntuación
-                  {book.rating_count === 1 ? "" : "es"}
-                </>
-              ) : (
-                "Sin puntuaciones todavía"
-              )}
-            </span>
+      <div className="book-layout">
+        <div className="book-cover-col">
+          <Cover book={book} size="lg" />
+        </div>
+
+        <div className="book-info-col">
+          <div className="pills">
+            {book.status === "current" && <span className="pill pill-accent">📖 Leyendo ahora</span>}
+            {book.status === "read" && <span className="pill">✅ Leído</span>}
+            {book.status === "proposed" && <span className="pill">💡 Propuesto</span>}
+            {book.avg_rating != null && book.avg_rating >= 4.5 && <span className="pill">🏆 Favorito del club</span>}
           </div>
-          {book.proposed_by_name && <p className="muted">Propuesto por {book.proposed_by_name}</p>}
-          {user?.isAdmin && book.status === "current" && (
-            <button
-              className="btn btn-ghost"
-              disabled={busy}
-              onClick={() => confirm("¿Dar por terminado este libro?") && run(() => api.finishBook(book.id))}
-            >
-              Marcar como terminado
-            </button>
+          <h1 className="book-title">{book.title}</h1>
+          {dates && <p className="muted small">{dates}</p>}
+          <p className="book-meta">
+            De <strong>{book.author}</strong>
+            {book.proposed_by_name && <span className="muted"> · propuesto por {book.proposed_by_name}</span>}
+          </p>
+
+          {book.status !== "proposed" && (
+            <div className="panel">
+              <div className="panel-score">
+                <span className="big-score">{book.avg_rating != null ? book.avg_rating.toFixed(1) : "–"}</span>
+                <div>
+                  <Stars value={book.avg_rating} size="lg" />
+                  <p className="muted small">
+                    {book.rating_count
+                      ? `${book.rating_count} puntuación${book.rating_count === 1 ? "" : "es"} del club`
+                      : "Sin puntuaciones todavía"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="panel-box">
+                <p className="panel-label">Tu puntuación</p>
+                <RequireLogin message="Entra para puntuar el libro.">
+                  <div className="my-rating">
+                    <Stars value={book.my_rating} onChange={(v) => run(() => api.rate(book.id, v))} size="lg" />
+                    <span className="muted small">
+                      {book.my_rating ? `Le has dado ${book.my_rating}/5` : "Toca una estrella"}
+                    </span>
+                  </div>
+                </RequireLogin>
+              </div>
+
+              {book.ratings.length > 0 && (
+                <ul className="ratings-list">
+                  {book.ratings.map((r) => (
+                    <li key={r.user_name}>
+                      <span>{r.user_name}</span>
+                      <Stars value={r.score} size="sm" />
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {user?.isAdmin && book.status === "current" && (
+                <button
+                  className="btn btn-block"
+                  disabled={busy}
+                  onClick={() => confirm("¿Dar por terminado este libro?") && run(() => api.finishBook(book.id))}
+                >
+                  Marcar como terminado
+                </button>
+              )}
+            </div>
           )}
         </div>
-      </header>
+      </div>
 
       {error && <p className="error">{error}</p>}
 
-      {book.status !== "proposed" && (
-        <section className="card">
-          <h2>Tu puntuación</h2>
-          <RequireLogin message="Entra para puntuar el libro.">
-            <div className="my-rating">
-              <Stars value={book.my_rating} onChange={(v) => run(() => api.rate(book.id, v))} size="lg" />
-              <span className="muted">{book.my_rating ? `Le has dado ${book.my_rating}/5` : "Toca una estrella"}</span>
-            </div>
-          </RequireLogin>
-          {book.ratings.length > 0 && (
-            <ul className="ratings-list">
-              {book.ratings.map((r) => (
-                <li key={r.user_name}>
-                  <span>{r.user_name}</span>
-                  <Stars value={r.score} size="sm" />
-                </li>
-              ))}
-            </ul>
-          )}
+      {book.description && (
+        <section className="detail-section">
+          <h2 className="rule-title">Sobre el libro</h2>
+          <p className="description">{book.description}</p>
         </section>
       )}
 
-      <section className="card">
-        <h2>Comentarios ({book.comments.length})</h2>
+      <section className="detail-section">
+        <h2 className="rule-title">Comentarios ({book.comments.length})</h2>
         {book.comments.length === 0 && <p className="muted">Nadie ha comentado todavía. ¡Empieza tú!</p>}
         <ul className="comments">
           {book.comments.map((c) => (
@@ -136,7 +161,7 @@ export function BookDetailView({ book, onChange }: { book: BookDetail; onChange:
               maxLength={4000}
             />
             <button className="btn" disabled={busy || !comment.trim()}>
-              Publicar
+              Publicar comentario
             </button>
           </form>
         </RequireLogin>
