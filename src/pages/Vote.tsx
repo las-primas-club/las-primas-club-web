@@ -342,6 +342,9 @@ export function Vote({ kind }: { kind: Kind }) {
                 {myProposals.map((b) => (
                   <li key={b.id}>
                     <Link to={k.paths.item(b.id)}>{b.title}</Link>{" "}
+                    <Link className="link-btn" to={`${k.paths.item(b.id)}?editar`}>
+                      editar
+                    </Link>
                     <button className="link-btn" disabled={busy} onClick={() => removeProposal(b)}>
                       quitar
                     </button>

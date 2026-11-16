@@ -512,17 +512,26 @@ app.delete("/books/:id", async (c) => {
   return c.json({ ok: true });
 });
 
-/** Admin: editar los datos de un libro. */
+/** Editar los datos de un libro o una película. Un admin, cualquiera; quien lo propuso, su propuesta mientras esté pendiente. */
 app.patch("/books/:id", async (c) => {
-  requireAdmin(c);
+  const user = requireUser(c);
   const id = idParam(c);
   const { title, author, description, cover, year } = bookFields(await jsonBody<Record<string, unknown>>(c));
-  const res = await c.env.DB.prepare(
-    `UPDATE books SET title = ?, author = ?, description = ?, cover_url = ?, year = ? WHERE id = ?`,
+  const book = await c.env.DB.prepare(`SELECT status, proposed_by, archived_at FROM books WHERE id = ?`)
+    .bind(id)
+    .first<{ status: string; proposed_by: number | null; archived_at: string | null }>();
+  if (!book) throw new HTTPException(404, { message: "No encontrado" });
+  if (!user.isAdmin) {
+    if (book.proposed_by !== user.id) throw new HTTPException(403, { message: "No es tu propuesta" });
+    if (book.status !== "proposed" || book.archived_at) bad("Solo puedes editar tus propuestas pendientes");
+  }
+  // Si cambia el título o el año, el id de TMDB guardado puede no corresponder: se vuelve a buscar cuando haga falta.
+  await c.env.DB.prepare(
+    `UPDATE books SET tmdb_id = CASE WHEN title = ?1 AND year IS ?5 THEN tmdb_id ELSE NULL END,
+       title = ?1, author = ?2, description = ?3, cover_url = ?4, year = ?5 WHERE id = ?6`,
   )
     .bind(title, author, description, cover, year, id)
     .run();
-  if (!res.meta.changes) throw new HTTPException(404, { message: "Libro no encontrado" });
   return c.json({ ok: true });
 });
 

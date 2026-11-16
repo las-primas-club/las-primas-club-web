@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router";
 import type { BookDetail, Comment } from "../../shared/types";
 import { api } from "../api";
 import { useAuth } from "../auth";
@@ -7,6 +8,7 @@ import { KINDS } from "../kinds";
 import { Cover } from "./Cover";
 import { useConfirm } from "./Dialog";
 import { EbookPanel } from "./EbookPanel";
+import { EditBook } from "./EditBook";
 import { MeetupPanel } from "./MeetupPanel";
 import { ProgressPanel } from "./ProgressPanel";
 import { WatchPanel } from "./WatchPanel";
@@ -20,6 +22,16 @@ export function BookDetailView({ book, onChange }: { book: BookDetail; onChange:
   const k = KINDS[book.kind];
   const [comment, setComment] = useState("");
   const [spoiler, setSpoiler] = useState(false);
+  // Quien lo propuso puede editarlo mientras esté pendiente; un admin, siempre. (?editar abre el formulario directamente.)
+  const canEdit = Boolean(
+    user && (user.isAdmin || (book.proposed_by === user.id && book.status === "proposed" && !book.archived_at)),
+  );
+  const [params, setParams] = useSearchParams();
+  const [editing, setEditing] = useState(() => params.has("editar"));
+  const stopEditing = () => {
+    setEditing(false);
+    if (params.has("editar")) setParams({}, { replace: true });
+  };
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,107 +70,126 @@ export function BookDetailView({ book, onChange }: { book: BookDetail; onChange:
 
   return (
     <article className="book-detail">
-      <div className="book-layout">
-        <div className="book-cover-col">
-          <Cover book={book} size="lg" />
-        </div>
-
-        <div className="book-info-col">
-          <div className="pills">
-            {book.status === "current" && <span className="pill pill-accent">{k.nowLabel}</span>}
-            {book.status === "read" && <span className="pill">{k.doneLabel}</span>}
-            {book.status === "proposed" && <span className="pill">{book.archived_at ? "📜 Propuesta archivada" : "💡 Propuesta"}</span>}
-            {book.avg_rating != null && book.avg_rating >= 4.5 && (
-              <span className="pill">🏆 Favorit{movie ? "a" : "o"} del club</span>
-            )}
+      {editing && canEdit ? (
+        <section className="panel">
+          <h2 className="edit-title">Editar {k.the}</h2>
+          <EditBook
+            book={book}
+            onCancel={stopEditing}
+            onSaved={() => {
+              stopEditing();
+              onChange();
+            }}
+          />
+        </section>
+      ) : (
+        <div className="book-layout">
+          <div className="book-cover-col">
+            <Cover book={book} size="lg" />
           </div>
-          <h1 className="book-title">
-            {book.title}
-            {book.year && <span className="muted year"> ({book.year})</span>}
-          </h1>
-          {dates && <p className="muted small">{dates}</p>}
-          <p className="book-meta">
-            {k.byPrefix}
-            <strong>{book.author}</strong>
-            {book.proposed_by_name && <span className="muted"> · {k.proposedBy} {book.proposed_by_name}</span>}
-          </p>
 
-          {book.status !== "proposed" && (
-            <div className="panel">
-              <div className="panel-score">
-                <span className="big-score">{book.avg_rating != null ? formatScore(book.avg_rating, true) : "–"}</span>
-                <div>
-                  <Stars value={book.avg_rating} size="lg" />
-                  <p className="muted small">
-                    {book.rating_count
-                      ? `${book.rating_count} ${book.rating_count === 1 ? "puntuación" : "puntuaciones"} del club`
-                      : "Sin puntuaciones todavía"}
-                  </p>
-                </div>
-              </div>
-
-              <div className="panel-box">
-                <p className="panel-label">Tu puntuación</p>
-                <RequireLogin message={`Entra para puntuar ${k.the}.`}>
-                  <div className="my-rating">
-                    <Stars value={book.my_rating} onChange={(v) => run(() => api.rate(book.id, v))} size="lg" />
-                    <span className="muted small">
-                      {book.my_rating ? (
-                        <>
-                          Le has dado {formatScore(book.my_rating)}/5. Toca otra estrella para cambiarla o
-                          <button
-                            className="link-btn"
-                            disabled={busy}
-                            onClick={async () =>
-                              (await ask({
-                                title: "¿Quitar tu puntuación?",
-                                message: `Dejará de contar en la media de ${k.the}. Puedes volver a puntuar cuando quieras.`,
-                                confirmLabel: "Quitar puntuación",
-                                danger: true,
-                              })) && run(() => api.unrate(book.id))
-                            }
-                          >
-                            quitarla
-                          </button>
-                        </>
-                      ) : (
-                        "Toca una estrella (la mitad izquierda da media)"
-                      )}
-                    </span>
-                  </div>
-                </RequireLogin>
-              </div>
-
-              {book.ratings.length > 0 && (
-                <ul className="ratings-list">
-                  {book.ratings.map((r, i) => (
-                    <li key={i}>
-                      <span>{r.user_name}</span>
-                      <Stars value={r.score} size="sm" />
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              {user?.isAdmin && book.status === "current" && (
-                <button
-                  className="btn btn-block"
-                  disabled={busy}
-                  onClick={async () =>
-                    (await ask({
-                      title: k.doneConfirm,
-                      message: `"${book.title}" pasará al historial de ${k.doneShort.toLowerCase()}.`,
-                      confirmLabel: k.doneAction,
-                    })) && run(() => api.finishBook(book.id))
-                  }
-                >
-                  {k.doneAction}
-                </button>
+          <div className="book-info-col">
+            <div className="pills">
+              {book.status === "current" && <span className="pill pill-accent">{k.nowLabel}</span>}
+              {book.status === "read" && <span className="pill">{k.doneLabel}</span>}
+              {book.status === "proposed" && <span className="pill">{book.archived_at ? "📜 Propuesta archivada" : "💡 Propuesta"}</span>}
+              {book.avg_rating != null && book.avg_rating >= 4.5 && (
+                <span className="pill">🏆 Favorit{movie ? "a" : "o"} del club</span>
               )}
             </div>
-          )}
+            <h1 className="book-title">
+              {book.title}
+              {book.year && <span className="muted year"> ({book.year})</span>}
+            </h1>
+            {dates && <p className="muted small">{dates}</p>}
+            <p className="book-meta">
+              {k.byPrefix}
+              <strong>{book.author}</strong>
+              {book.proposed_by_name && <span className="muted"> · {k.proposedBy} {book.proposed_by_name}</span>}
+            </p>
+            {canEdit && (
+              <button className="btn btn-ghost btn-sm edit-btn" onClick={() => setEditing(true)}>
+                ✏️ Editar{book.status === "proposed" && !user?.isAdmin ? " tu propuesta" : ""}
+              </button>
+            )}
+
+            {book.status !== "proposed" && (
+              <div className="panel">
+                <div className="panel-score">
+                  <span className="big-score">{book.avg_rating != null ? formatScore(book.avg_rating, true) : "–"}</span>
+                  <div>
+                    <Stars value={book.avg_rating} size="lg" />
+                    <p className="muted small">
+                      {book.rating_count
+                        ? `${book.rating_count} ${book.rating_count === 1 ? "puntuación" : "puntuaciones"} del club`
+                        : "Sin puntuaciones todavía"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="panel-box">
+                  <p className="panel-label">Tu puntuación</p>
+                  <RequireLogin message={`Entra para puntuar ${k.the}.`}>
+                    <div className="my-rating">
+                      <Stars value={book.my_rating} onChange={(v) => run(() => api.rate(book.id, v))} size="lg" />
+                      <span className="muted small">
+                        {book.my_rating ? (
+                          <>
+                            Le has dado {formatScore(book.my_rating)}/5. Toca otra estrella para cambiarla o
+                            <button
+                              className="link-btn"
+                              disabled={busy}
+                              onClick={async () =>
+                                (await ask({
+                                  title: "¿Quitar tu puntuación?",
+                                  message: `Dejará de contar en la media de ${k.the}. Puedes volver a puntuar cuando quieras.`,
+                                  confirmLabel: "Quitar puntuación",
+                                  danger: true,
+                                })) && run(() => api.unrate(book.id))
+                              }
+                            >
+                              quitarla
+                            </button>
+                          </>
+                        ) : (
+                          "Toca una estrella (la mitad izquierda da media)"
+                        )}
+                      </span>
+                    </div>
+                  </RequireLogin>
+                </div>
+
+                {book.ratings.length > 0 && (
+                  <ul className="ratings-list">
+                    {book.ratings.map((r, i) => (
+                      <li key={i}>
+                        <span>{r.user_name}</span>
+                        <Stars value={r.score} size="sm" />
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {user?.isAdmin && book.status === "current" && (
+                  <button
+                    className="btn btn-block"
+                    disabled={busy}
+                    onClick={async () =>
+                      (await ask({
+                        title: k.doneConfirm,
+                        message: `"${book.title}" pasará al historial de ${k.doneShort.toLowerCase()}.`,
+                        confirmLabel: k.doneAction,
+                      })) && run(() => api.finishBook(book.id))
+                    }
+                  >
+                    {k.doneAction}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {error && <p className="error">{error}</p>}
 

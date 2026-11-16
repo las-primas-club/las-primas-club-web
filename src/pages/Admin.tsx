@@ -4,6 +4,7 @@ import type { Book, Kind, Role } from "../../shared/types";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { Cover } from "../components/Cover";
+import { EditBook } from "../components/EditBook";
 import { useConfirm, type ConfirmOptions } from "../components/Dialog";
 import { formatDate, formatDateTime } from "../format";
 import { KINDS } from "../kinds";
@@ -327,73 +328,6 @@ function BooksTab() {
         ))}
       </ul>
     </div>
-  );
-}
-
-function EditBook({ book, onCancel, onSaved }: { book: Book; onCancel: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState({
-    title: book.title,
-    author: book.author,
-    description: book.description ?? "",
-    cover_url: book.cover_url ?? "",
-    year: book.year ?? "",
-  });
-  const k = KINDS[book.kind];
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-    setForm({ ...form, [k]: e.target.value });
-
-  const save = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      await api.editBook(book.id, {
-        ...form,
-        description: form.description || null,
-        cover_url: form.cover_url || null,
-        year: form.year || null,
-      });
-      onSaved();
-    } catch (err) {
-      setError((err as Error).message);
-      setBusy(false);
-    }
-  };
-
-  return (
-    <form className="propose-form edit-book" onSubmit={save}>
-      <label>
-        Título
-        <input required value={form.title} onChange={set("title")} maxLength={200} />
-      </label>
-      <label>
-        {k.creatorLabel}
-        <input required value={form.author} onChange={set("author")} maxLength={200} />
-      </label>
-      <label>
-        Año
-        <input inputMode="numeric" pattern="\d{4}" value={form.year} onChange={set("year")} maxLength={4} />
-      </label>
-      <label className="full">
-        Sinopsis
-        <textarea rows={4} value={form.description} onChange={set("description")} maxLength={2000} />
-      </label>
-      <label className="full">
-        {k.coverLabel}
-        <input type="url" value={form.cover_url} onChange={set("cover_url")} maxLength={500} />
-      </label>
-      {error && <p className="error full">{error}</p>}
-      <div className="edit-actions full">
-        <button className="btn" disabled={busy}>
-          Guardar
-        </button>
-        <button type="button" className="btn btn-ghost" onClick={onCancel}>
-          Cancelar
-        </button>
-      </div>
-    </form>
   );
 }
 
