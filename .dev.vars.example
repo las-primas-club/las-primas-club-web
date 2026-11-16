@@ -1,0 +1,6 @@
+# Copia este fichero a .dev.vars para desarrollo local (no se sube a git).
+GOOGLE_CLIENT_ID=
+ALLOWED_EMAILS=
+ADMIN_EMAILS=dev@example.com
+# Permite entrar sin Google en local (botón "Entrar (dev)"). NUNCA en producción.
+DEV_LOGIN=true
