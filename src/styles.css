@@ -341,3 +341,96 @@ select {
   .person-actions { width: 100%; justify-content: flex-start; }
   .add-member { grid-template-columns: 1fr; }
 }
+
+/* ---------- Aviso de instalación ---------- */
+.install-banner {
+  display: flex; align-items: center; gap: 12px; margin-top: 16px; padding: 12px 14px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--panel);
+}
+.install-banner img { border-radius: 10px; flex-shrink: 0; }
+.install-text { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.35; }
+.install-banner .btn { padding: 8px 16px; }
+.install-close {
+  background: none; border: 0; font-size: 1.6rem; line-height: 1; color: var(--muted); cursor: pointer;
+  width: 36px; height: 36px; flex-shrink: 0;
+}
+
+/* ---------- Barra inferior (móvil) ---------- */
+.tabbar { display: none; }
+
+@media (max-width: 720px) {
+  html { -webkit-tap-highlight-color: transparent; }
+  body { font-size: 16px; }
+
+  /* Cabecera compacta; la navegación pasa a la barra inferior */
+  .announcement { font-size: 0.72rem; padding: 5px 12px; }
+  .site-header { padding-top: env(safe-area-inset-top); }
+  .site-nav { display: none; }
+  .header-top { min-height: 58px; }
+  .brand { gap: 10px; }
+  .brand img { width: 34px; height: 34px; border-radius: 8px; }
+  .brand span { font-size: 1.45rem; }
+
+  .tabbar {
+    display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+    background: rgb(255 255 255 / 96%); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    border-top: 1px solid var(--line-strong);
+    padding: 6px max(8px, env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  }
+  .tabbar a {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    min-height: 50px; padding: 4px 2px; border-radius: 10px;
+    color: var(--muted); text-decoration: none; font-size: 0.7rem; font-weight: 600;
+  }
+  .tabbar a.active { color: var(--accent); }
+  .tabbar a.active svg { stroke-width: 2.3; }
+  .tabbar a:active { background: var(--accent-soft); }
+
+  main.container { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+  .site-footer { display: none; }
+
+  /* Tipografía y espacios */
+  .page, .book-detail { padding-top: 24px; }
+  .section { padding-top: 36px; }
+  .section-sub { margin-bottom: 18px; }
+  .detail-section { margin-top: 36px; }
+  .panel { padding: 18px; }
+
+  /* Portada (hero) */
+  .hero-inner { padding-top: 28px; padding-bottom: 32px; gap: 20px; }
+  .hero-text h1 { font-size: clamp(2.1rem, 9vw, 2.8rem); margin-top: 14px; }
+  .hero-sub { margin-bottom: 22px; }
+  .hero-text .btn { width: 100%; }
+  .cover-xl, .hero-logo { width: 150px; }
+  .pill-light { font-size: 0.95rem; }
+
+  /* Libros */
+  .card-row { grid-auto-columns: 160px; gap: 12px; margin-right: -16px; padding-right: 16px; }
+  .book-card { padding: 10px 12px 14px; }
+  .book-card-cover { padding: 0 8px; margin-bottom: 12px; }
+  .book-title { font-size: 2rem; }
+  .big-score { font-size: 2.5rem; }
+
+  /* Botones y enlaces con zona táctil cómoda */
+  .btn { min-height: 46px; }
+  .link-btn { padding: 10px 8px; font-size: 0.9rem; }
+  .comment-form .btn, .propose-form .btn { width: 100%; }
+  .edit-actions .btn { flex: 1; }
+
+  /* Votación */
+  .candidate { padding: 14px; gap: 14px; }
+  .candidate-actions .btn { flex: 1; }
+  .admin-bar { flex-direction: column; align-items: stretch; }
+}
+
+@media (max-width: 460px) {
+  .book-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .stars-lg .star { font-size: 1.9rem; }
+}
+
+/* App instalada: sin la franja de anuncio, que ocupa sitio */
+@media (display-mode: standalone) {
+  .announcement { display: none; }
+  .login-screen { padding-top: calc(48px + env(safe-area-inset-top)); }
+}

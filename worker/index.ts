@@ -37,7 +37,14 @@ app.use("*", async (c, next) => {
 });
 
 // Toda la API exige sesión, salvo lo necesario para poder iniciarla.
-const PUBLIC_PATHS = new Set(["/api/config", "/api/me", "/api/auth/google", "/api/auth/dev", "/api/auth/logout"]);
+const PUBLIC_PATHS = new Set([
+  "/api/config",
+  "/api/me",
+  "/api/auth/google",
+  "/api/auth/google/redirect",
+  "/api/auth/dev",
+  "/api/auth/logout",
+]);
 
 app.use("*", async (c, next) => {
   if (!PUBLIC_PATHS.has(c.req.path) && !c.get("user")) {
@@ -91,7 +98,8 @@ function text(value: unknown, field: string, max: number, required = true): stri
   return trimmed || null;
 }
 
-async function loginAs(c: Ctx, profile: GoogleProfile) {
+/** Comprueba que es miembro, crea la sesión y pone la cookie. */
+async function loginAs(c: Ctx, profile: GoogleProfile): Promise<void> {
   if (isProtectedAdmin(c.env, profile.email)) {
     await c.env.DB.prepare(`INSERT INTO members (email, role) VALUES (?, 'admin') ON CONFLICT (email) DO UPDATE SET role = 'admin'`)
       .bind(profile.email)
@@ -134,7 +142,6 @@ async function loginAs(c: Ctx, profile: GoogleProfile) {
     path: "/",
     maxAge: SESSION_DAYS * 24 * 3600,
   });
-  return c.json({ ok: true });
 }
 
 // ---------- Config y auth ----------
@@ -155,7 +162,24 @@ app.post("/auth/google", async (c) => {
   } catch {
     throw new HTTPException(401, { message: "No se pudo verificar el login de Google" });
   }
-  return loginAs(c, profile);
+  await loginAs(c, profile);
+  return c.json({ ok: true });
+});
+
+// Login por redirección (lo usa la app instalada, donde la ventana emergente de Google no funciona bien).
+// Google envía aquí un formulario POST con el token y redirigimos a la web con la sesión ya creada.
+app.post("/auth/google/redirect", async (c) => {
+  const back = (error?: string) => c.redirect(error ? `/?login_error=${encodeURIComponent(error)}` : "/", 303);
+  const form = await c.req.parseBody();
+  const credential = typeof form.credential === "string" ? form.credential : "";
+  const csrfCookie = getCookie(c, "g_csrf_token");
+  if (!credential || (csrfCookie && csrfCookie !== form.g_csrf_token)) return back("No se pudo iniciar sesión. Inténtalo de nuevo.");
+  try {
+    await loginAs(c, await verifyGoogleToken(credential, c.env.GOOGLE_CLIENT_ID));
+  } catch (e) {
+    return back(e instanceof HTTPException ? e.message : "No se pudo verificar el login de Google");
+  }
+  return back();
 });
 
 // Login sin Google, solo para desarrollo local (DEV_LOGIN=true en .dev.vars)
@@ -164,7 +188,8 @@ app.post("/auth/dev", async (c) => {
   const body = await c.req.json<{ name?: string; email?: string }>();
   const email = text(body.email, "email", 200)!.toLowerCase();
   const name = text(body.name, "nombre", 100, false) ?? email.split("@")[0];
-  return loginAs(c, { sub: `dev:${email}`, email, name, picture: null });
+  await loginAs(c, { sub: `dev:${email}`, email, name, picture: null });
+  return c.json({ ok: true });
 });
 
 app.post("/auth/logout", async (c) => {

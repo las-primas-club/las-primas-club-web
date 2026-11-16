@@ -46,7 +46,12 @@ declare global {
     google?: {
       accounts: {
         id: {
-          initialize(opts: { client_id: string; callback: (r: { credential: string }) => void }): void;
+          initialize(opts: {
+            client_id: string;
+            callback: (r: { credential: string }) => void;
+            ux_mode?: "popup" | "redirect";
+            login_uri?: string;
+          }): void;
           renderButton(el: HTMLElement, opts: Record<string, unknown>): void;
           disableAutoSelect(): void;
         };

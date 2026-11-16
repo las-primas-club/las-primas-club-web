@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { useAuth } from "../auth";
+import { isStandalone } from "../pwa";
 
 /** Botón de login con Google (y login de desarrollo si está activado). */
 export function LoginBox({ compact = false }: { compact?: boolean }) {
@@ -15,8 +16,11 @@ export function LoginBox({ compact = false }: { compact?: boolean }) {
     const tryRender = () => {
       if (cancelled) return;
       if (!window.google) return void setTimeout(tryRender, 200);
+      // En la app instalada la ventana emergente de Google falla (sobre todo en iPhone): usamos redirección.
+      const redirect = isStandalone();
       window.google.accounts.id.initialize({
         client_id: clientId,
+        ...(redirect ? { ux_mode: "redirect", login_uri: `${location.origin}/api/auth/google/redirect` } : {}),
         callback: async ({ credential }) => {
           try {
             setError(null);
