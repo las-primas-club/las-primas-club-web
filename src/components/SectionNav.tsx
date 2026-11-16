@@ -7,7 +7,8 @@ export function SectionNav({ kind }: { kind: Kind }) {
   const k = KINDS[kind];
   return (
     <nav className="section-nav" aria-label={k.section}>
-      <NavLink to={k.paths.now} end>
+      {/* stay: al tocar esta pestaña se ve la página aunque no haya nada en curso (sin redirigir a otra). */}
+      <NavLink to={k.paths.now} state={{ stay: true }} end>
         {k.nowShort}
       </NavLink>
       <NavLink to={k.paths.vote}>
