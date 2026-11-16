@@ -2,7 +2,8 @@ import { Link } from "react-router";
 import type { Kind } from "../../shared/types";
 import { api } from "../api";
 import { Cover } from "../components/Cover";
-import { CLUB_NAME, INTRO } from "../content";
+import { CLUB_NAME, INTRO, howItWorks } from "../content";
+import { useAuth } from "../auth";
 import { KINDS } from "../kinds";
 import { useAsync } from "../useAsync";
 import { formatLocalDateTime, isPast } from "../format";
@@ -62,6 +63,7 @@ function NowCard({ kind }: { kind: Kind }) {
 }
 
 export function Home() {
+  const { settings } = useAuth();
   return (
     <div className="home">
       <section className="hero full-bleed">
@@ -94,7 +96,7 @@ export function Home() {
         </div>
         <p className="section-sub">Así elegimos qué leer y qué ver, ronda a ronda.</p>
         <ol className="flow">
-          {INTRO.howItWorks.map((s, i) => (
+          {howItWorks(settings).map((s, i) => (
             <li key={s.title} className="flow-step">
               <span className="flow-n" aria-hidden>
                 {i + 1}

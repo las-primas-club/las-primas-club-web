@@ -1,10 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
-import type { AppConfig, User } from "../shared/types";
+import { DEFAULT_SETTINGS, type AppConfig, type Settings, type User } from "../shared/types";
 import { api, UNAUTHORIZED_EVENT } from "./api";
 
 interface AuthState {
   user: User | null;
   config: AppConfig | null;
+  /** Normas del club (votos, propuestas…). Las cambia un admin en el panel. */
+  settings: Settings;
+  setSettings: (s: Settings) => void;
   ready: boolean;
   refresh: () => Promise<void>;
   logout: () => Promise<void>;
@@ -15,10 +18,14 @@ const AuthContext = createContext<AuthState | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [config, setConfig] = useState<AppConfig | null>(null);
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [ready, setReady] = useState(false);
 
   const refresh = useCallback(async () => {
-    setUser(await api.me().catch(() => null));
+    const me = await api.me().catch(() => null);
+    // Las normas solo se pueden leer con sesión.
+    if (me) await api.settings().then(setSettings).catch(() => {});
+    setUser(me);
   }, []);
 
   useEffect(() => {
@@ -38,7 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
-  return <AuthContext.Provider value={{ user, config, ready, refresh, logout }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, config, settings, setSettings, ready, refresh, logout }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

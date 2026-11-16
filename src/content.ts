@@ -1,4 +1,5 @@
 // Textos de la web. Edítalos libremente.
+import type { Settings } from "../shared/types";
 
 export const CLUB_NAME = "Las Primas Club";
 
@@ -11,16 +12,28 @@ export const ANNOUNCEMENT = "¡Gracias por leer (y ver pelis) con Las Primas Clu
 
 export const INTRO = {
   tagline: "Libros, películas y sobremesas largas.",
-  about:
-    "Un grupo de amigos que elige juntos qué leer y qué ver, y lo comenta comiendo fuera.",
-  howItWorks: [
-    {
-      title: "Proponemos",
-      text: "Cada uno puede tener hasta dos propuestas de libros y dos de películas. Buscas el título y se rellena solo.",
-    },
+  about: "Un grupo de amigos que elige juntos qué leer y qué ver, y lo comenta comiendo fuera.",
+};
+
+const NUMBERS = ["cero", "una", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve", "diez"];
+/** 2 → "dos" (femenino en el uno: "una propuesta"). */
+const word = (n: number) => NUMBERS[n] ?? String(n);
+
+/** Los pasos de "Cómo funciona", redactados según las normas actuales del club. */
+export function howItWorks(s: Settings) {
+  const proposals =
+    s.maxProposals === 1
+      ? "Cada uno puede tener una propuesta de libro y una de película."
+      : `Cada uno puede tener hasta ${word(s.maxProposals)} propuestas de libros y ${word(s.maxProposals)} de películas.`;
+  const votes =
+    s.maxVotes === 1
+      ? "En cada ronda tienes un voto"
+      : `En cada ronda tienes ${word(s.maxVotes).replace(/^una$/, "un")} votos: repártelos${s.stackVotes ? " o dale varios al mismo" : " entre candidatos distintos"}`;
+  return [
+    { title: "Proponemos", text: `${proposals} Buscas el título y se rellena solo.` },
     {
       title: "Votamos",
-      text: "En cada ronda tienes dos votos: repártelos o dale los dos al mismo (a lo tuyo no vale). Son anónimos hasta que se cierra; luego se ve qué votó cada uno.",
+      text: `${votes}${s.voteOwn ? "" : " (a lo tuyo no vale)"}. Son anónimos hasta que se cierra; luego se ve qué votó cada uno.`,
     },
     {
       title: "Gana el más votado",
@@ -34,5 +47,5 @@ export const INTRO = {
       title: "Puntuamos",
       text: "Cada uno deja aquí su nota y sus comentarios, y todo queda guardado en el historial del club.",
     },
-  ],
-};
+  ];
+}

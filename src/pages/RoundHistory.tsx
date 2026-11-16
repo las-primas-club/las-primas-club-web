@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { MAX_PROPOSALS, type Kind } from "../../shared/types";
+import type { Kind } from "../../shared/types";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { RoundResults } from "../components/RoundResults";
@@ -11,7 +11,7 @@ import { useAsync } from "../useAsync";
 /** Histórico de rondas cerradas: qué se propuso, cuántos votos tuvo cada cosa y qué votó cada uno. */
 export function RoundHistory({ kind }: { kind: Kind }) {
   const k = KINDS[kind];
-  const { user } = useAuth();
+  const { user, settings } = useAuth();
   const { data: rounds, loading, error: loadError, reload } = useAsync(() => api.rounds(kind), [kind, user?.id]);
   const { data: proposed, reload: reloadProposed } = useAsync(() => api.books("proposed", kind), [kind]);
   const [busy, setBusy] = useState(false);
@@ -45,7 +45,7 @@ export function RoundHistory({ kind }: { kind: Kind }) {
       </p>
       {user && (
         <p className="muted small">
-          Tienes {mine} de {MAX_PROPOSALS} propuestas pendientes. <Link to={k.paths.vote}>Ir a la votación ›</Link>
+          Tienes {mine} de {settings.maxProposals} propuestas pendientes. <Link to={k.paths.vote}>Ir a la votación ›</Link>
         </p>
       )}
       {loadError && <p className="error">{loadError}</p>}
@@ -62,7 +62,7 @@ export function RoundHistory({ kind }: { kind: Kind }) {
               key={r.id}
               round={r}
               busy={busy}
-              canRepropose={mine < MAX_PROPOSALS}
+              canRepropose={mine < settings.maxProposals}
               onRepropose={repropose}
             />
           ))}

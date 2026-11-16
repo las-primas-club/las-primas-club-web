@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, Navigate } from "react-router";
-import type { Book, Kind, Role } from "../../shared/types";
+import { DEFAULT_SETTINGS, SETTING_LIMITS, type Book, type Kind, type Role, type Settings } from "../../shared/types";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { Cover } from "../components/Cover";
@@ -10,7 +10,7 @@ import { formatDate, formatDateTime } from "../format";
 import { KINDS } from "../kinds";
 import { useAsync } from "../useAsync";
 
-type Tab = "members" | "books" | "rounds";
+type Tab = "members" | "books" | "rounds" | "settings";
 
 /** Ejecuta una acción de admin mostrando errores y recargando después. */
 function useAction(reload: () => unknown) {
@@ -48,6 +48,7 @@ export function Admin() {
             ["members", "Miembros"],
             ["books", "Libros y cine"],
             ["rounds", "Rondas"],
+            ["settings", "Normas"],
           ] as const
         ).map(([id, label]) => (
           <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>
@@ -58,6 +59,7 @@ export function Admin() {
       {tab === "members" && <MembersTab />}
       {tab === "books" && <BooksTab />}
       {tab === "rounds" && <RoundsTab />}
+      {tab === "settings" && <SettingsTab />}
     </div>
   );
 }
@@ -423,5 +425,103 @@ function KindRounds({ kind }: { kind: Kind }) {
         </section>
       )}
     </div>
+  );
+}
+
+// ---------- Normas ----------
+
+const NUMBER_SETTINGS: { key: keyof typeof SETTING_LIMITS; label: string; help: string }[] = [
+  { key: "maxVotes", label: "Votos por persona", help: "Cuántos votos tiene cada uno en cada ronda." },
+  {
+    key: "maxProposals",
+    label: "Propuestas por persona",
+    help: "Cuántas propuestas pendientes puede tener cada uno. Libros y cine cuentan por separado.",
+  },
+  { key: "kindleSendsPerDay", label: "Envíos al Kindle al día", help: "Máximo de libros que cada uno puede mandarse al día." },
+];
+const TOGGLE_SETTINGS: { key: "stackVotes" | "voteOwn"; label: string; help: string }[] = [
+  { key: "stackVotes", label: "Varios votos al mismo candidato", help: "Si está desactivado, cada voto tiene que ir a un candidato distinto." },
+  { key: "voteOwn", label: "Votar propuestas propias", help: "Si está desactivado, nadie puede votar lo que ha propuesto." },
+];
+
+function SettingsTab() {
+  const { settings, setSettings } = useAuth();
+  const [form, setForm] = useState<Settings>(settings);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const dirty = (Object.keys(form) as (keyof Settings)[]).some((k) => form[k] !== settings[k]);
+  const change = (patch: Partial<Settings>) => {
+    setForm({ ...form, ...patch });
+    setSaved(false);
+  };
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const next = await api.admin.saveSettings(form);
+      setSettings(next);
+      setForm(next);
+      setSaved(true);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form className="admin-section settings-form" onSubmit={save}>
+      <p className="muted">
+        Los cambios se aplican al momento y solo a lo que se haga a partir de ahora: no se borra ningún voto ni propuesta que ya
+        exista, aunque supere el nuevo límite.
+      </p>
+      {NUMBER_SETTINGS.map(({ key, label, help }) => {
+        const [min, max] = SETTING_LIMITS[key];
+        return (
+          <label key={key} className="setting">
+            <span>
+              <strong>{label}</strong>
+              <span className="muted small">
+                {help} Por defecto: {DEFAULT_SETTINGS[key]}.
+              </span>
+            </span>
+            <input
+              type="number"
+              inputMode="numeric"
+              required
+              min={min}
+              max={max}
+              step={1}
+              value={form[key]}
+              onChange={(e) => change({ [key]: e.target.valueAsNumber || min })}
+            />
+          </label>
+        );
+      })}
+      {TOGGLE_SETTINGS.map(({ key, label, help }) => (
+        <label key={key} className="setting">
+          <span>
+            <strong>{label}</strong>
+            <span className="muted small">
+              {help} Por defecto: {DEFAULT_SETTINGS[key] ? "sí" : "no"}.
+            </span>
+          </span>
+          <input type="checkbox" checked={form[key]} onChange={(e) => change({ [key]: e.target.checked })} />
+        </label>
+      ))}
+      {error && <p className="error">{error}</p>}
+      {saved && <p className="notice">Normas guardadas.</p>}
+      <div className="edit-actions">
+        <button className="btn" disabled={busy || !dirty}>
+          {busy ? "Guardando…" : "Guardar normas"}
+        </button>
+        <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => change(DEFAULT_SETTINGS)}>
+          Volver a los valores por defecto
+        </button>
+      </div>
+    </form>
   );
 }

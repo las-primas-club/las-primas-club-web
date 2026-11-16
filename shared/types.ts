@@ -139,7 +139,7 @@ export interface Round {
   pending_voters: string[] | null;
   winner_book_id: number | null;
   candidates: Candidate[];
-  /** Mis votos en esta ronda (0, 1 o 2 ids; repetido si di los dos al mismo). */
+  /** Mis votos en esta ronda (un id por voto; repetido si di varios al mismo). */
   my_votes: number[];
   /** Personas que han votado. */
   voters: number;
@@ -155,9 +155,35 @@ export interface Ballot {
   book_ids: number[];
 }
 
-/** Límites por persona (y por sección: libros y cine por separado). */
-export const MAX_VOTES = 2;
-export const MAX_PROPOSALS = 2;
+/** Normas del club. Las cambia un admin desde el panel; se aplican a libros y a cine por separado. */
+export interface Settings {
+  /** Votos por persona en cada ronda. */
+  maxVotes: number;
+  /** Propuestas pendientes por persona y sección. */
+  maxProposals: number;
+  /** ¿Se pueden dar varios votos al mismo candidato? */
+  stackVotes: boolean;
+  /** ¿Se puede votar una propuesta propia? */
+  voteOwn: boolean;
+  /** Envíos al Kindle por persona y día. */
+  kindleSendsPerDay: number;
+}
+
+/** Valores por defecto: los que se usan mientras un admin no los cambie. */
+export const DEFAULT_SETTINGS: Settings = {
+  maxVotes: 2,
+  maxProposals: 2,
+  stackVotes: true,
+  voteOwn: false,
+  kindleSendsPerDay: 10,
+};
+
+/** Mínimo y máximo de las normas numéricas (el máximo de votos lo marca también la base de datos). */
+export const SETTING_LIMITS = {
+  maxVotes: [1, 10],
+  maxProposals: [1, 10],
+  kindleSendsPerDay: [1, 50],
+} as const satisfies Partial<Record<keyof Settings, readonly [number, number]>>;
 
 export interface AppConfig {
   googleClientId: string;

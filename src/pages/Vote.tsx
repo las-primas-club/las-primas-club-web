@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { MAX_PROPOSALS, MAX_VOTES, type Book, type Kind } from "../../shared/types";
+import type { Book, Kind } from "../../shared/types";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { Cover } from "../components/Cover";
@@ -15,10 +15,10 @@ import { useAsync } from "../useAsync";
 import { formatLocalDateTime, isPast } from "../format";
 
 /** Puntitos con los votos que me quedan. */
-function VoteDots({ used }: { used: number }) {
+function VoteDots({ used, max }: { used: number; max: number }) {
   return (
-    <span className="vote-dots" aria-label={`Te quedan ${MAX_VOTES - used} de ${MAX_VOTES} votos`}>
-      {Array.from({ length: MAX_VOTES }, (_, i) => (
+    <span className="vote-dots" aria-label={`Te quedan ${Math.max(0, max - used)} de ${max} votos`}>
+      {Array.from({ length: Math.max(max, used) }, (_, i) => (
         <span key={i} className={i < used ? "used" : ""} />
       ))}
     </span>
@@ -27,7 +27,7 @@ function VoteDots({ used }: { used: number }) {
 
 export function Vote({ kind }: { kind: Kind }) {
   const k = KINDS[kind];
-  const { user } = useAuth();
+  const { user, settings } = useAuth();
   const ask = useConfirm();
   const { data: round, loading, error: loadError, reload: reloadRound } = useAsync(() => api.currentRound(kind), [user?.id, kind]);
   const { data: proposed, reload: reloadProposed } = useAsync(() => api.books("proposed", kind), [kind]);
@@ -62,11 +62,12 @@ export function Vote({ kind }: { kind: Kind }) {
 
   if (loading) return <SectionNav kind={kind} />;
   const myProposals = user ? (proposed ?? []).filter((b) => b.proposed_by === user.id) : [];
-  const proposalsLeft = MAX_PROPOSALS - myProposals.length;
+  const proposalsLeft = Math.max(0, settings.maxProposals - myProposals.length);
   const open = round?.status === "open" ? round : null;
   const lastClosed = round?.status === "closed" ? round : null;
   const myVotes = open?.my_votes ?? [];
-  const votesLeft = MAX_VOTES - myVotes.length;
+  // Si un admin bajó el número de votos con la ronda en marcha, puede que tenga más de los que tocan: no se le quitan.
+  const votesLeft = Math.max(0, settings.maxVotes - myVotes.length);
 
   /** Añade o quita uno de mis votos a un candidato. */
   const changeVote = (bookId: number, add: boolean) => {
@@ -87,8 +88,12 @@ export function Vote({ kind }: { kind: Kind }) {
       {open ? (
         <section>
           <p className="lead">
-            {k.voteLead} Tienes {MAX_VOTES} votos: repártelos o dale los dos al mismo (a tus propias propuestas no). Puedes
-            cambiarlos mientras la ronda siga abierta.
+            {k.voteLead}{" "}
+            {settings.maxVotes === 1
+              ? "Tienes un voto"
+              : `Tienes ${settings.maxVotes} votos: repártelos${settings.stackVotes ? " o dale varios al mismo" : " entre candidatos distintos"}`}
+            {settings.voteOwn ? "" : " (a tus propias propuestas no)"}. Puedes cambiarlo{settings.maxVotes === 1 ? "" : "s"} mientras
+            la ronda siga abierta.
           </p>
           <p className="muted small">
             Los votos son anónimos hasta que se cierre la ronda; entonces se verá qué votó cada uno. ·{" "}
@@ -109,9 +114,11 @@ export function Vote({ kind }: { kind: Kind }) {
           )}
           {user && (
             <p className="my-votes">
-              <VoteDots used={myVotes.length} />
+              <VoteDots used={myVotes.length} max={settings.maxVotes} />
               {votesLeft === 0
-                ? "Has usado tus dos votos."
+                ? settings.maxVotes === 1
+                  ? "Has usado tu voto."
+                  : "Has usado todos tus votos."
                 : `Te queda${votesLeft === 1 ? "" : "n"} ${votesLeft} voto${votesLeft === 1 ? "" : "s"}.`}
             </p>
           )}
@@ -124,7 +131,7 @@ export function Vote({ kind }: { kind: Kind }) {
                 <li key={book.id} className={`candidate ${mine ? "is-mine" : ""}`}>
                   <Cover book={book} size="sm" />
                   <div className="candidate-info">
-                    {mine > 0 && <span className="pill pill-accent">{mine === 2 ? "Tus dos votos" : "Tu voto"}</span>}
+                    {mine > 0 && <span className="pill pill-accent">{mine > 1 ? `Tus ${mine} votos` : "Tu voto"}</span>}
                     <h3>
                       <Link to={k.paths.item(book.id)}>{book.title}</Link>
                       {book.year && <span className="muted year"> ({book.year})</span>}
@@ -142,7 +149,7 @@ export function Vote({ kind }: { kind: Kind }) {
                     </p>
                   </div>
                   <div className="candidate-actions">
-                    {user && book.proposed_by === user.id ? (
+                    {user && book.proposed_by === user.id && !settings.voteOwn ? (
                       <span className="muted small own-proposal">Es tu propuesta: no puedes votarla</span>
                     ) : user && (
                       <div className="vote-buttons">
@@ -158,10 +165,10 @@ export function Vote({ kind }: { kind: Kind }) {
                         )}
                         <button
                           className={`btn ${mine ? "" : "btn-ghost"}`}
-                          disabled={busy || votesLeft === 0}
+                          disabled={busy || votesLeft === 0 || (mine > 0 && !settings.stackVotes)}
                           onClick={() => changeVote(book.id, true)}
                         >
-                          {mine ? "+1 voto" : "Votar"}
+                          {!mine ? "Votar" : settings.stackVotes ? "+1 voto" : "Votado"}
                         </button>
                       </div>
                     )}
@@ -347,7 +354,7 @@ export function Vote({ kind }: { kind: Kind }) {
           {myProposals.length > 0 && (
             <div className="panel my-proposal">
               <p>
-                Tus propuestas ({myProposals.length} de {MAX_PROPOSALS}):
+                Tus propuestas ({myProposals.length} de {settings.maxProposals}):
               </p>
               <ul className="proposed-list">
                 {myProposals.map((b) => (
@@ -363,7 +370,10 @@ export function Vote({ kind }: { kind: Kind }) {
                 ))}
               </ul>
               {proposalsLeft === 0 && (
-                <p className="muted small">Ya has usado tus {MAX_PROPOSALS} propuestas. Quita una si quieres proponer otra.</p>
+                <p className="muted small">
+                  {settings.maxProposals === 1 ? "Ya has usado tu propuesta" : `Ya has usado tus ${settings.maxProposals} propuestas`}. Quita una
+                  si quieres proponer otra.
+                </p>
               )}
             </div>
           )}

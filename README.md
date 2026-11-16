@@ -150,7 +150,10 @@ No actives también *Workers Builds* en Cloudflare, o se desplegaría dos veces.
 
 ## Cómo se usa
 
-- **Proponer**: cada miembro puede tener hasta 2 propuestas pendientes por sección (libros y cine por separado).
+- **Normas** (*Admin → Normas*): votos y propuestas por persona, si se pueden dar varios votos al mismo candidato, si se
+  puede votar lo propio y los envíos al Kindle al día. Se cambian sin tocar código y solo afectan a lo que se haga a partir
+  de entonces (no se borra nada). Los valores por defecto están en `shared/types.ts`.
+- **Proponer**: cada miembro puede tener hasta 2 propuestas (por defecto) pendientes por sección (libros y cine por separado).
   Si hay una ronda abierta, entran como candidatas; si no, entran en la siguiente. Para proponer otra, quita antes una tuya.
 - **Votar**: 2 votos por persona y ronda; se pueden repartir o dar los dos al mismo candidato, y cambiar mientras siga
   abierta. Nadie puede votar sus propias propuestas. Son anónimos durante la ronda (solo se ven los totales); al cerrarla se ve qué votó cada uno.

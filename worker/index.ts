@@ -3,8 +3,8 @@ import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { HTTPException } from "hono/http-exception";
 import { secureHeaders } from "hono/secure-headers";
 import {
-  MAX_PROPOSALS,
-  MAX_VOTES,
+  DEFAULT_SETTINGS,
+  SETTING_LIMITS,
   type AccessRequest,
   type AppConfig,
   type Ballot,
@@ -18,6 +18,7 @@ import {
   type Rating,
   type Round,
   type Rsvp,
+  type Settings,
   type Stats,
   type StatsItem,
   type StatsMember,
@@ -116,6 +117,40 @@ function localDateTime(value: unknown, field: string): string | null {
   const v = text(value, field, 16, false);
   if (v && (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v) || Number.isNaN(Date.parse(v)))) bad(`${field} no válida`);
   return v;
+}
+
+/** Normas del club: lo guardado en la tabla settings sobre los valores por defecto. Un valor guardado que no valga se ignora. */
+async function getSettings(env: Env): Promise<Settings> {
+  const { results } = await env.DB.prepare(`SELECT key, value FROM settings`).all<{ key: string; value: string }>();
+  const settings: Settings = { ...DEFAULT_SETTINGS };
+  for (const { key, value } of results) {
+    try {
+      Object.assign(settings, checkSettings({ [key]: JSON.parse(value) }));
+    } catch {
+      /* valor antiguo o corrupto: se queda el de por defecto */
+    }
+  }
+  return settings;
+}
+
+/** Valida las normas recibidas (solo las claves conocidas) y devuelve las que hay que guardar. */
+function checkSettings(input: Record<string, unknown>): Partial<Settings> {
+  const out: Partial<Settings> = {};
+  for (const key of Object.keys(DEFAULT_SETTINGS) as (keyof Settings)[]) {
+    const value = input[key];
+    if (value === undefined) continue;
+    if (key === "stackVotes" || key === "voteOwn") {
+      if (typeof value !== "boolean") bad("Valor no válido");
+      out[key] = value;
+    } else {
+      const [min, max] = SETTING_LIMITS[key];
+      if (typeof value !== "number" || !Number.isInteger(value) || value < min || value > max) {
+        bad(`El valor debe estar entre ${min} y ${max}`);
+      }
+      out[key] = value;
+    }
+  }
+  return out;
 }
 
 /** Manda un aviso push a todo el club sin retrasar la respuesta. */
@@ -433,12 +468,13 @@ function bookFields(body: Record<string, unknown>) {
 /** SQL: cuántas propuestas pendientes tiene la persona ?2 de este tipo ?1. */
 const PENDING_PROPOSALS = `SELECT COUNT(*) FROM books WHERE kind = ?1 AND status = 'proposed' AND archived_at IS NULL AND proposed_by = ?2`;
 
-function proposalLimitError(kind: Kind) {
+function proposalLimitError(kind: Kind, max: number) {
+  const one = max === 1;
   return new HTTPException(409, {
     message:
       kind === "movie"
-        ? `Ya tienes ${MAX_PROPOSALS} películas propuestas. Quita una si quieres proponer otra.`
-        : `Ya tienes ${MAX_PROPOSALS} libros propuestos. Quita uno si quieres proponer otro.`,
+        ? `Ya tienes ${max} película${one ? "" : "s"} propuesta${one ? "" : "s"}. Quita una si quieres proponer otra.`
+        : `Ya tienes ${max} libro${one ? "" : "s"} propuesto${one ? "" : "s"}. Quita uno si quieres proponer otro.`,
   });
 }
 
@@ -451,7 +487,7 @@ async function joinOpenRound(c: Ctx, bookId: number, kind: Kind) {
     .run();
 }
 
-/** Proponer un libro o una película (máximo MAX_PROPOSALS pendientes por persona y tipo). Si hay una ronda abierta de su tipo, entra directamente como candidato. */
+/** Proponer un libro o una película (con el máximo de propuestas pendientes por persona y tipo que marquen las normas). Si hay una ronda abierta de su tipo, entra directamente como candidato. */
 app.post("/books", async (c) => {
   const user = requireUser(c);
   const body = await jsonBody<Record<string, unknown>>(c);
@@ -461,6 +497,7 @@ app.post("/books", async (c) => {
   const tmdbMatch = kind === "movie" && typeof body.source === "string" ? /^tmdb:(\d{1,10})$/.exec(body.source) : null;
   const tmdbId = tmdbMatch ? Number(tmdbMatch[1]) : null;
 
+  const { maxProposals } = await getSettings(c.env);
   // El límite va en el propio INSERT: si ya tiene el máximo, no inserta nada.
   const book = await c.env.DB.prepare(
     `INSERT INTO books (kind, title, author, description, cover_url, year, proposed_by, tmdb_id)
@@ -468,9 +505,9 @@ app.post("/books", async (c) => {
      WHERE (${PENDING_PROPOSALS}) < ?8
      RETURNING id`,
   )
-    .bind(kind, user.id, title, author, description, cover, year, MAX_PROPOSALS, tmdbId)
+    .bind(kind, user.id, title, author, description, cover, year, maxProposals, tmdbId)
     .first<{ id: number }>();
-  if (!book) throw proposalLimitError(kind);
+  if (!book) throw proposalLimitError(kind, maxProposals);
   await joinOpenRound(c, book.id, kind);
   return c.json({ id: book.id }, 201);
 });
@@ -484,13 +521,14 @@ app.post("/books/:id/repropose", async (c) => {
     .first<{ kind: Kind; status: string; archived_at: string | null }>();
   if (!book) throw new HTTPException(404, { message: "No encontrado" });
   if (book.status !== "proposed" || !book.archived_at) bad("Esta propuesta no está archivada");
+  const { maxProposals } = await getSettings(c.env);
   const res = await c.env.DB.prepare(
     `UPDATE books SET archived_at = NULL, proposed_by = ?2
      WHERE id = ?3 AND archived_at IS NOT NULL AND (${PENDING_PROPOSALS}) < ?4`,
   )
-    .bind(book.kind, user.id, id, MAX_PROPOSALS)
+    .bind(book.kind, user.id, id, maxProposals)
     .run();
-  if (!res.meta.changes) throw proposalLimitError(book.kind);
+  if (!res.meta.changes) throw proposalLimitError(book.kind, maxProposals);
   await joinOpenRound(c, id, book.kind);
   return c.json({ ok: true });
 });
@@ -746,7 +784,6 @@ app.get("/books/:id/watch", async (c) => {
 
 // ---------- Epub y envío al Kindle ----------
 
-const KINDLE_SENDS_PER_DAY = 10;
 const KINDLE_LINK_MINUTES = 60;
 
 /** Admin: subir (o reemplazar) el epub de un libro. El cuerpo es el archivo tal cual. */
@@ -836,7 +873,8 @@ app.post("/books/:id/kindle", async (c) => {
   )
     .bind(user.id)
     .first<{ n: number }>();
-  if ((sent?.n ?? 0) >= KINDLE_SENDS_PER_DAY) bad(`Máximo ${KINDLE_SENDS_PER_DAY} envíos al día. Prueba mañana.`);
+  const { kindleSendsPerDay } = await getSettings(c.env);
+  if ((sent?.n ?? 0) >= kindleSendsPerDay) bad(`Máximo ${kindleSendsPerDay} envíos al día. Prueba mañana.`);
 
   const token = newSessionToken();
   await c.env.DB.batch([
@@ -982,15 +1020,22 @@ app.patch("/rounds/:id", async (c) => {
   return c.json({ ok: true });
 });
 
-/** Repartir mis votos: lista de hasta MAX_VOTES candidatos (se puede repetir uno para darle los dos; nunca a una propuesta propia). Sustituye a los anteriores. */
+/** Repartir mis votos: lista de candidatos, uno por voto, según las normas del club (cuántos votos, si se pueden repetir y si vale votar lo propio). Sustituye a los anteriores. */
 app.put("/rounds/:id/votes", async (c) => {
   const user = requireUser(c);
   const roundId = idParam(c);
   const { bookIds } = await jsonBody<{ bookIds?: unknown }>(c);
-  if (!Array.isArray(bookIds) || bookIds.length > MAX_VOTES || !bookIds.every((id) => Number.isInteger(id))) {
-    bad(`Tienes ${MAX_VOTES} votos como máximo`);
-  }
+  const rules = await getSettings(c.env);
+  if (!Array.isArray(bookIds) || !bookIds.every((id) => Number.isInteger(id))) bad("Votos no válidos");
   const ids = bookIds as number[];
+  // Si un admin bajó el límite con la ronda en marcha, quien tenía más votos puede ir quitándolos (nunca añadir).
+  const mine = await c.env.DB.prepare(`SELECT COUNT(*) AS n FROM votes WHERE round_id = ? AND user_id = ?`)
+    .bind(roundId, user.id)
+    .first<{ n: number }>();
+  if (ids.length > rules.maxVotes && ids.length >= (mine?.n ?? 0)) {
+    bad(`Tienes ${rules.maxVotes} voto${rules.maxVotes === 1 ? "" : "s"} como máximo`);
+  }
+  if (!rules.stackVotes && new Set(ids).size !== ids.length) bad("No puedes dar más de un voto al mismo candidato");
   const { results } = await c.env.DB.prepare(
     `SELECT rc.book_id, b.proposed_by FROM rounds r
      JOIN round_candidates rc ON rc.round_id = r.id
@@ -1002,7 +1047,7 @@ app.put("/rounds/:id/votes", async (c) => {
   const candidates = new Map(results.map((r) => [r.book_id, r.proposed_by]));
   if (!candidates.size) bad("La ronda no está abierta");
   if (!ids.every((id) => candidates.has(id))) bad("Solo puedes votar a los candidatos de esta ronda");
-  if (ids.some((id) => candidates.get(id) === user.id)) bad("No puedes votar tus propias propuestas");
+  if (!rules.voteOwn && ids.some((id) => candidates.get(id) === user.id)) bad("No puedes votar tus propias propuestas");
   await c.env.DB.batch([
     c.env.DB.prepare(`DELETE FROM votes WHERE round_id = ? AND user_id = ?`).bind(roundId, user.id),
     ...ids.map((bookId, i) =>
@@ -1054,6 +1099,28 @@ app.delete("/rounds/:id", async (c) => {
   const res = await c.env.DB.prepare(`DELETE FROM rounds WHERE id = ? AND status = 'open'`).bind(idParam(c)).run();
   if (!res.meta.changes) bad("Solo se puede cancelar una ronda abierta");
   return c.json({ ok: true });
+});
+
+// ---------- Normas del club ----------
+
+app.get("/settings", async (c) => c.json(await getSettings(c.env)));
+
+/** Admin: cambiar las normas. Solo afecta a lo que se haga a partir de ahora: no se borra ningún voto ni propuesta. */
+app.put("/admin/settings", async (c) => {
+  requireAdmin(c);
+  const changes = checkSettings(await jsonBody<Record<string, unknown>>(c));
+  const entries = Object.entries(changes);
+  if (entries.length) {
+    await c.env.DB.batch(
+      entries.map(([key, value]) =>
+        c.env.DB.prepare(
+          `INSERT INTO settings (key, value) VALUES (?, ?)
+           ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`,
+        ).bind(key, JSON.stringify(value)),
+      ),
+    );
+  }
+  return c.json(await getSettings(c.env));
 });
 
 // ---------- Estadísticas ----------

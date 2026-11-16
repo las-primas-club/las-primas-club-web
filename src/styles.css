@@ -350,6 +350,12 @@ select {
 }
 .tabs button:hover { color: var(--ink); }
 .tabs button.active { color: var(--ink); border-bottom-color: var(--accent); }
+.tabs { scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+@media (max-width: 600px) {
+  .tabs { gap: 0; }
+  .tabs button { flex: 1 0 auto; padding-inline: 8px; font-size: 0.92rem; }
+}
 .admin-section .detail-section:first-child, .admin-section .panel:first-child { margin-top: 0; }
 .admin-section .detail-section { max-width: none; }
 .people, .admin-books { list-style: none; padding: 0; margin: 0; }
@@ -364,6 +370,12 @@ select {
 .link-btn.danger:hover { color: var(--error); }
 .add-member { display: grid; grid-template-columns: 1fr 180px auto; gap: 14px; align-items: end; }
 .edit-book { flex: 1; }
+.settings-form { display: grid; gap: 4px; max-width: 640px; }
+.settings-form .setting { flex-direction: row; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--line); font-weight: 400; }
+.settings-form .setting > span { display: grid; gap: 2px; }
+.settings-form .setting input[type="number"] { width: 88px; flex: none; text-align: center; }
+.settings-form .setting input[type="checkbox"] { width: 22px; height: 22px; flex: none; padding: 0; accent-color: var(--accent); }
+.settings-form .edit-actions { margin-top: 16px; }
 .candidate-links { display: inline-flex; gap: 4px; white-space: nowrap; }
 .btn-sm { min-height: 0; padding: 6px 14px; font-size: 0.88rem; }
 .edit-btn { margin: 4px 0 8px; }

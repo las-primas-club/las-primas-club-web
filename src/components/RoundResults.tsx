@@ -75,22 +75,19 @@ export function RoundResults({
           <summary>Cómo votó cada uno</summary>
           <ul>
             {round.ballots.map((b) => {
-              const [first, second] = b.book_ids;
+              // Un chip por candidato votado, con ×N si le dio varios votos.
+              const counts = new Map<number, number>();
+              for (const id of b.book_ids) counts.set(id, (counts.get(id) ?? 0) + 1);
               return (
                 <li key={b.user_id}>
                   <strong>{b.name}</strong>
                   <span>
-                    {first === second ? (
-                      <>
-                        <span className="vote-chip">{titles.get(first)}</span> <span className="muted small">×2</span>
-                      </>
-                    ) : (
-                      b.book_ids.map((id) => (
-                        <span key={id} className="vote-chip">
-                          {titles.get(id)}
-                        </span>
-                      ))
-                    )}
+                    {[...counts].map(([id, n]) => (
+                      <span key={id} className="vote-chip">
+                        {titles.get(id)}
+                        {n > 1 && ` ×${n}`}
+                      </span>
+                    ))}
                   </span>
                 </li>
               );

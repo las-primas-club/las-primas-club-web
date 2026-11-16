@@ -8,6 +8,7 @@ import type {
   Member,
   Role,
   Round,
+  Settings,
   Stats,
   User,
   WatchInfo,
@@ -97,7 +98,10 @@ export const api = {
   editBook: (id: number, b: BookInput) => request("PATCH", `/books/${id}`, b),
   cancelRound: (roundId: number) => request("DELETE", `/rounds/${roundId}`),
 
+  settings: () => request<Settings>("GET", "/settings"),
+
   admin: {
+    saveSettings: (s: Partial<Settings>) => request<Settings>("PUT", "/admin/settings", s),
     members: () => request<{ members: Member[]; requests: AccessRequest[] }>("GET", "/admin/members"),
     addMember: (email: string, role: Role) => request("POST", "/admin/members", { email, role }),
     setRole: (email: string, role: Role) => request("PATCH", `/admin/members/${encodeURIComponent(email)}`, { role }),
@@ -110,7 +114,7 @@ export const api = {
   openRound: (kind: Kind = "book", closes_at = "") => request("POST", "/rounds", { kind, closes_at }),
   setRoundDeadline: (roundId: number, closes_at: string) => request("PATCH", `/rounds/${roundId}`, { closes_at }),
   rounds: (kind: Kind) => request<Round[]>("GET", `/rounds?kind=${kind}`),
-  /** Mis votos de la ronda (hasta MAX_VOTES ids, repetidos si van al mismo). */
+  /** Mis votos de la ronda (un id por voto, repetidos si van al mismo). */
   setVotes: (roundId: number, bookIds: number[]) => request("PUT", `/rounds/${roundId}/votes`, { bookIds }),
   closeRound: (roundId: number) => request<{ winnerId: number }>("POST", `/rounds/${roundId}/close`),
 };
