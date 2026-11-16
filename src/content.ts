@@ -12,7 +12,7 @@ export const ANNOUNCEMENT = "¡Gracias por leer (y ver pelis) con Las Primas Clu
 export const INTRO = {
   tagline: "Libros, películas y sobremesas largas.",
   about:
-    "Somos un grupo de amigos a los que nos encanta comer fuera y alargar la sobremesa hablando de lo último que hemos leído o visto. Este club es nuestra excusa: elegimos juntos un libro y una película, y luego quedamos a comentarlos.",
+    "Somos un grupo de amigos a los que nos encanta comer fuera y hablar de libros y cine. Elegimos juntos qué leer y qué ver, y lo comentamos en la sobremesa.",
   howItWorks: [
     {
       emoji: "💡",
