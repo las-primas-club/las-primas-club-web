@@ -6,6 +6,7 @@ import { useAuth } from "../auth";
 import { Cover } from "../components/Cover";
 import { useConfirm } from "../components/Dialog";
 import { ProposeForm } from "../components/ProposeForm";
+import { Proposer } from "../components/Proposer";
 import { RequireLogin } from "../components/LoginBox";
 import { RoundResults } from "../components/RoundResults";
 import { SectionNav } from "../components/SectionNav";
@@ -95,33 +96,44 @@ export function Vote({ kind }: { kind: Kind }) {
             {settings.voteOwn ? "" : " (a tus propias propuestas no)"}. Puedes cambiarlo{settings.maxVotes === 1 ? "" : "s"} mientras
             la ronda siga abierta.
           </p>
-          <p className="muted small">
-            Los votos son anónimos hasta que se cierre la ronda; entonces se verá qué votó cada uno. ·{" "}
-            {open.voters} persona{open.voters === 1 ? "" : "s"} ha{open.voters === 1 ? "" : "n"} votado.
-          </p>
-          {open.closes_at && (
-            <p className={`deadline ${isPast(open.closes_at) ? "is-past" : ""}`}>
-              {isPast(open.closes_at) ? "El plazo para votar terminó el" : "Se cierra el"}{" "}
-              <strong>{formatLocalDateTime(open.closes_at)}</strong>
-            </p>
-          )}
-          {open.pending_voters && open.voters > 0 && (
-            <p className="muted small">
-              {open.pending_voters.length === 0
-                ? "Ya ha votado todo el mundo."
-                : `Falta${open.pending_voters.length === 1 ? "" : "n"} por votar: ${open.pending_voters.join(", ")}.`}
-            </p>
-          )}
-          {user && (
-            <p className="my-votes">
-              <VoteDots used={myVotes.length} max={settings.maxVotes} />
-              {votesLeft === 0
-                ? settings.maxVotes === 1
-                  ? "Has usado tu voto."
-                  : "Has usado todos tus votos."
-                : `Te queda${votesLeft === 1 ? "" : "n"} ${votesLeft} voto${votesLeft === 1 ? "" : "s"}.`}
-            </p>
-          )}
+          <p className="muted small">Los votos son anónimos hasta que se cierre la ronda; entonces se verá qué votó cada uno.</p>
+          {/* Estado de la ronda de un vistazo: mis votos, participación y fecha límite */}
+          <dl className="vote-status">
+            {user && (
+              <div className="vote-status-mine">
+                <dt>Tus votos</dt>
+                <dd>
+                  <VoteDots used={myVotes.length} max={settings.maxVotes} />
+                  {votesLeft === 0
+                    ? settings.maxVotes === 1
+                      ? "Has usado tu voto"
+                      : "Los has usado todos"
+                    : `Te queda${votesLeft === 1 ? "" : "n"} ${votesLeft}`}
+                </dd>
+              </div>
+            )}
+            <div>
+              <dt>Participación</dt>
+              <dd>
+                {open.voters === 0
+                  ? "Nadie ha votado todavía"
+                  : `${open.voters} persona${open.voters === 1 ? " ha" : "s han"} votado`}
+                {open.pending_voters && open.voters > 0 && (
+                  <span className="muted small">
+                    {open.pending_voters.length === 0
+                      ? "Ya ha votado todo el mundo"
+                      : `Falta${open.pending_voters.length === 1 ? "" : "n"}: ${open.pending_voters.join(", ")}`}
+                  </span>
+                )}
+              </dd>
+            </div>
+            {open.closes_at && (
+              <div className={isPast(open.closes_at) ? "is-past" : ""}>
+                <dt>{isPast(open.closes_at) ? "Plazo terminado" : "Se cierra"}</dt>
+                <dd>{formatLocalDateTime(open.closes_at)}</dd>
+              </div>
+            )}
+          </dl>
           {open.candidates.length === 0 && <p className="muted">Todavía no hay candidatos. ¡Propón uno abajo!</p>}
           <ul className="candidates">
             {open.candidates.map(({ book, votes }) => {
@@ -136,10 +148,8 @@ export function Vote({ kind }: { kind: Kind }) {
                       <Link to={k.paths.item(book.id)}>{book.title}</Link>
                       {book.year && <span className="muted year"> ({book.year})</span>}
                     </h3>
-                    <p className="muted">
-                      {book.author}
-                      {book.proposed_by_name && ` · ${k.proposedBy} ${book.proposed_by_name}`}
-                    </p>
+                    <p className="muted candidate-author">{book.author}</p>
+                    <Proposer book={book} />
                     {book.description && <Synopsis text={book.description} lines={3} className="small" />}
                     <div className="bar" aria-label={`${votes} votos`}>
                       <span style={{ width: `${pct}%` }} />
@@ -271,10 +281,7 @@ export function Vote({ kind }: { kind: Kind }) {
                   <Link to={k.paths.item(b.id)}>
                     <strong>{b.title}</strong>
                   </Link>{" "}
-                  <span className="muted">
-                    · {b.author}
-                    {b.proposed_by_name && ` · ${b.proposed_by_name}`}
-                  </span>
+                  <span className="muted">· {b.author}</span> <Proposer book={b} />
                   {user && !user.isAdmin && b.proposed_by === user.id && (
                     <>
                       {" "}

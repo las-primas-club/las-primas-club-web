@@ -7,6 +7,7 @@ import { formatDate, formatDateTime, formatScore } from "../format";
 import { KINDS } from "../kinds";
 import { Cover } from "./Cover";
 import { useConfirm } from "./Dialog";
+import { Proposer } from "./Proposer";
 import { EbookPanel } from "./EbookPanel";
 import { EditBook } from "./EditBook";
 import { MeetupPanel } from "./MeetupPanel";
@@ -105,7 +106,9 @@ export function BookDetailView({ book, onChange }: { book: BookDetail; onChange:
             <p className="book-meta">
               {k.byPrefix}
               <strong>{book.author}</strong>
-              {book.proposed_by_name && <span className="muted"> · {k.proposedBy} {book.proposed_by_name}</span>}
+            </p>
+            <p className="book-proposer">
+              <Proposer book={book} />
             </p>
             {canEdit && (
               <button className="btn btn-ghost btn-sm edit-btn" onClick={() => setEditing(true)}>

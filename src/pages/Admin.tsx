@@ -5,6 +5,7 @@ import { api } from "../api";
 import { useAuth } from "../auth";
 import { Cover } from "../components/Cover";
 import { EditBook } from "../components/EditBook";
+import { Proposer } from "../components/Proposer";
 import { useConfirm, type ConfirmOptions } from "../components/Dialog";
 import { formatDate, formatDateTime } from "../format";
 import { KINDS } from "../kinds";
@@ -271,10 +272,10 @@ function BooksTab() {
                   {b.kind === "movie" && <span className="muted small"> · película</span>}
                   <span className="muted small">
                     {b.author}
-                    {b.proposed_by_name && ` · propuesto por ${b.proposed_by_name}`}
                     {b.year && ` · ${b.year}`}
                     {b.finished_at && ` · ${b.kind === "movie" ? "vista" : "terminado"} el ${formatDate(b.finished_at)}`}
                   </span>
+                  <Proposer book={b} />
                 </div>
                 <div className="person-actions">
                   {b.status === "proposed" && (

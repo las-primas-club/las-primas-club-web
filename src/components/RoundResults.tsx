@@ -4,6 +4,7 @@ import { useAuth } from "../auth";
 import { formatDate } from "../format";
 import { KINDS } from "../kinds";
 import { Cover } from "./Cover";
+import { Proposer } from "./Proposer";
 
 /** Resultado de una ronda cerrada: candidatos con sus votos y cómo votó cada uno. */
 export function RoundResults({
@@ -43,10 +44,8 @@ export function RoundResults({
                   <strong>{book.title}</strong>
                 </Link>
                 {book.year && <span className="muted year"> ({book.year})</span>}
-                <p className="muted small">
-                  {book.author}
-                  {book.proposed_by_name && ` · ${k.proposedBy} ${book.proposed_by_name}`}
-                </p>
+                <p className="muted small">{book.author}</p>
+                <Proposer book={book} />
                 {user && book.status === "proposed" && book.archived_at && onRepropose && (
                   <button
                     className="link-btn"
