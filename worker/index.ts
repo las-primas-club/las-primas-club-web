@@ -1,7 +1,21 @@
 import { Hono, type Context } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { HTTPException } from "hono/http-exception";
-import type { AccessRequest, AppConfig, Book, BookDetail, Comment, Kind, Member, Rating, Round, User } from "../shared/types";
+import {
+  MAX_PROPOSALS,
+  MAX_VOTES,
+  type AccessRequest,
+  type AppConfig,
+  type Ballot,
+  type Book,
+  type BookDetail,
+  type Comment,
+  type Kind,
+  type Member,
+  type Rating,
+  type Round,
+  type User,
+} from "../shared/types";
 import { bookDescription, searchBooks } from "./bookSearch";
 import { searchMovies } from "./movieSearch";
 import {
@@ -255,7 +269,7 @@ app.get("/search/description", async (c) => {
 
 const BOOK_SELECT = `
   SELECT b.id, b.kind, b.title, b.author, b.cover_url, b.description, b.year, b.status,
-         b.started_at, b.finished_at, b.proposed_by, p.name AS proposed_by_name, b.epub_name, b.epub_size,
+         b.started_at, b.finished_at, b.proposed_by, p.name AS proposed_by_name, b.archived_at, b.epub_name, b.epub_size,
          ROUND(AVG(r.score), 1) AS avg_rating, COUNT(r.score) AS rating_count
   FROM books b
   LEFT JOIN users p ON p.id = b.proposed_by
@@ -274,6 +288,8 @@ app.get("/books", async (c) => {
   if (status) {
     conditions.push("b.status = ?");
     params.push(status);
+    // "proposed" son las pendientes; las archivadas están en el histórico de rondas.
+    if (status === "proposed") conditions.push("b.archived_at IS NULL");
   }
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   const { results } = await c.env.DB.prepare(
@@ -333,37 +349,78 @@ function bookFields(body: Record<string, unknown>) {
   };
 }
 
-/** Proponer un libro o una película. Si hay una ronda abierta de su tipo, entra directamente como candidato. */
+/** SQL: cuántas propuestas pendientes tiene la persona ?2 de este tipo ?1. */
+const PENDING_PROPOSALS = `SELECT COUNT(*) FROM books WHERE kind = ?1 AND status = 'proposed' AND archived_at IS NULL AND proposed_by = ?2`;
+
+function proposalLimitError(kind: Kind) {
+  return new HTTPException(409, {
+    message:
+      kind === "movie"
+        ? `Ya tienes ${MAX_PROPOSALS} películas propuestas. Quita una si quieres proponer otra.`
+        : `Ya tienes ${MAX_PROPOSALS} libros propuestos. Quita uno si quieres proponer otro.`,
+  });
+}
+
+/** Si hay una ronda abierta de su tipo, la propuesta entra directamente como candidata. */
+async function joinOpenRound(c: Ctx, bookId: number, kind: Kind) {
+  await c.env.DB.prepare(
+    `INSERT OR IGNORE INTO round_candidates (round_id, book_id) SELECT id, ? FROM rounds WHERE status = 'open' AND kind = ?`,
+  )
+    .bind(bookId, kind)
+    .run();
+}
+
+/** Proponer un libro o una película (máximo MAX_PROPOSALS pendientes por persona y tipo). Si hay una ronda abierta de su tipo, entra directamente como candidato. */
 app.post("/books", async (c) => {
   const user = requireUser(c);
   const body = await c.req.json<Record<string, unknown>>();
   const kind = kindOf(body.kind);
   const { title, author, description, cover, year } = bookFields(body);
 
+  // El límite va en el propio INSERT: si ya tiene el máximo, no inserta nada.
   const book = await c.env.DB.prepare(
-    `INSERT INTO books (kind, title, author, description, cover_url, year, proposed_by) VALUES (?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO books (kind, title, author, description, cover_url, year, proposed_by)
+     SELECT ?1, ?3, ?4, ?5, ?6, ?7, ?2
+     WHERE (${PENDING_PROPOSALS}) < ?8
      RETURNING id`,
   )
-    .bind(kind, title, author, description, cover, year, user.id)
+    .bind(kind, user.id, title, author, description, cover, year, MAX_PROPOSALS)
     .first<{ id: number }>();
-  await c.env.DB.prepare(
-    `INSERT OR IGNORE INTO round_candidates (round_id, book_id) SELECT id, ? FROM rounds WHERE status = 'open' AND kind = ?`,
+  if (!book) throw proposalLimitError(kind);
+  await joinOpenRound(c, book.id, kind);
+  return c.json({ id: book.id }, 201);
+});
+
+/** Volver a proponer algo que perdió una votación (sale del histórico). Pasa a ser propuesta de quien lo rescata. */
+app.post("/books/:id/repropose", async (c) => {
+  const user = requireUser(c);
+  const id = idParam(c);
+  const book = await c.env.DB.prepare(`SELECT kind, status, archived_at FROM books WHERE id = ?`)
+    .bind(id)
+    .first<{ kind: Kind; status: string; archived_at: string | null }>();
+  if (!book) throw new HTTPException(404, { message: "No encontrado" });
+  if (book.status !== "proposed" || !book.archived_at) bad("Esta propuesta no está archivada");
+  const res = await c.env.DB.prepare(
+    `UPDATE books SET archived_at = NULL, proposed_by = ?2
+     WHERE id = ?3 AND archived_at IS NOT NULL AND (${PENDING_PROPOSALS}) < ?4`,
   )
-    .bind(book!.id, kind)
+    .bind(book.kind, user.id, id, MAX_PROPOSALS)
     .run();
-  return c.json({ id: book!.id }, 201);
+  if (!res.meta.changes) throw proposalLimitError(book.kind);
+  await joinOpenRound(c, id, book.kind);
+  return c.json({ ok: true });
 });
 
 /** Borrar un libro. Quien lo propuso puede borrar su propuesta; un admin, cualquier libro (con sus votos, notas y comentarios). */
 app.delete("/books/:id", async (c) => {
   const user = requireUser(c);
   const id = idParam(c);
-  const book = await c.env.DB.prepare(`SELECT status, proposed_by FROM books WHERE id = ?`)
+  const book = await c.env.DB.prepare(`SELECT status, proposed_by, archived_at FROM books WHERE id = ?`)
     .bind(id)
-    .first<{ status: string; proposed_by: number | null }>();
+    .first<{ status: string; proposed_by: number | null; archived_at: string | null }>();
   if (!book) throw new HTTPException(404, { message: "Libro no encontrado" });
   if (!user.isAdmin) {
-    if (book.status !== "proposed") bad("Solo se pueden borrar libros propuestos");
+    if (book.status !== "proposed" || book.archived_at) bad("Solo se pueden quitar propuestas pendientes");
     if (book.proposed_by !== user.id) throw new HTTPException(403, { message: "No es tu propuesta" });
   }
   await c.env.DB.prepare(`DELETE FROM books WHERE id = ?`).bind(id).run();
@@ -615,25 +672,40 @@ app.get("/kindle-file/:token", async (c) => {
 
 async function roundDetail(c: Ctx, roundId: number): Promise<Round> {
   const user = c.get("user");
-  const [round, candidates, myVote, voters] = await c.env.DB.batch([
+  const [round, candidates, votes] = await c.env.DB.batch([
     c.env.DB.prepare(`SELECT id, kind, status, created_at, closed_at, winner_book_id FROM rounds WHERE id = ?`).bind(roundId),
     c.env.DB.prepare(
       `${BOOK_SELECT}
        JOIN round_candidates rc ON rc.book_id = b.id AND rc.round_id = ?1
        GROUP BY b.id`,
     ).bind(roundId),
-    c.env.DB.prepare(`SELECT book_id FROM votes WHERE round_id = ? AND user_id = ?`).bind(roundId, user?.id ?? 0),
-    c.env.DB.prepare(`SELECT book_id, COUNT(*) AS n FROM votes WHERE round_id = ? GROUP BY book_id`).bind(roundId),
+    c.env.DB.prepare(
+      `SELECT v.user_id, v.book_id, u.name, u.picture FROM votes v JOIN users u ON u.id = v.user_id
+       WHERE v.round_id = ? ORDER BY u.name, v.slot`,
+    ).bind(roundId),
   ]);
-  const counts = new Map((voters.results as { book_id: number; n: number }[]).map((v) => [v.book_id, v.n]));
-  const r = round.results[0] as Omit<Round, "candidates" | "my_vote" | "voters">;
+  const r = round.results[0] as Pick<Round, "id" | "kind" | "status" | "created_at" | "closed_at" | "winner_book_id">;
+  if (!r) throw new HTTPException(404, { message: "Ronda no encontrada" });
+  const rows = votes.results as { user_id: number; book_id: number; name: string; picture: string | null }[];
+
+  const counts = new Map<number, number>();
+  const byUser = new Map<number, Ballot>();
+  for (const v of rows) {
+    counts.set(v.book_id, (counts.get(v.book_id) ?? 0) + 1);
+    const ballot = byUser.get(v.user_id) ?? { user_id: v.user_id, name: v.name, picture: v.picture, book_ids: [] };
+    ballot.book_ids.push(v.book_id);
+    byUser.set(v.user_id, ballot);
+  }
   return {
     ...r,
     candidates: (candidates.results as unknown as Book[])
       .map((book) => ({ book, votes: counts.get(book.id) ?? 0 }))
       .sort((a, b) => b.votes - a.votes || a.book.id - b.book.id),
-    my_vote: (myVote.results[0] as { book_id: number } | undefined)?.book_id ?? null,
-    voters: [...counts.values()].reduce((a, b) => a + b, 0),
+    my_votes: rows.filter((v) => v.user_id === user?.id).map((v) => v.book_id),
+    voters: byUser.size,
+    total_votes: rows.length,
+    // Mientras la ronda está abierta, los votos son anónimos: solo se ven los totales.
+    ballots: r.status === "closed" ? [...byUser.values()] : null,
   };
 }
 
@@ -647,6 +719,16 @@ app.get("/rounds/current", async (c) => {
   return c.json(row ? await roundDetail(c, row.id) : null);
 });
 
+/** Histórico: rondas cerradas de un tipo, de la más reciente a la más antigua. */
+app.get("/rounds", async (c) => {
+  const { results } = await c.env.DB.prepare(
+    `SELECT id FROM rounds WHERE kind = ? AND status = 'closed' ORDER BY id DESC LIMIT 50`,
+  )
+    .bind(kindOf(c.req.query("kind")))
+    .all<{ id: number }>();
+  return c.json(await Promise.all(results.map((r) => roundDetail(c, r.id))));
+});
+
 /** Admin: abrir una ronda nueva. Entran todas las propuestas pendientes. */
 app.post("/rounds", async (c) => {
   requireAdmin(c);
@@ -655,34 +737,46 @@ app.post("/rounds", async (c) => {
   if (open) bad("Ya hay una ronda abierta");
   const round = await c.env.DB.prepare(`INSERT INTO rounds (kind) VALUES (?) RETURNING id`).bind(kind).first<{ id: number }>();
   await c.env.DB.prepare(
-    `INSERT INTO round_candidates (round_id, book_id) SELECT ?, id FROM books WHERE status = 'proposed' AND kind = ?`,
+    `INSERT INTO round_candidates (round_id, book_id)
+     SELECT ?, id FROM books WHERE status = 'proposed' AND archived_at IS NULL AND kind = ?`,
   )
     .bind(round!.id, kind)
     .run();
   return c.json({ id: round!.id }, 201);
 });
 
-app.post("/rounds/:id/vote", async (c) => {
+/** Repartir mis votos: lista de hasta MAX_VOTES candidatos (se puede repetir uno para darle los dos). Sustituye a los anteriores. */
+app.put("/rounds/:id/votes", async (c) => {
   const user = requireUser(c);
   const roundId = idParam(c);
-  const { bookId } = await c.req.json<{ bookId?: number }>();
-  const ok = await c.env.DB.prepare(
-    `SELECT 1 FROM rounds r JOIN round_candidates rc ON rc.round_id = r.id
-     WHERE r.id = ? AND r.status = 'open' AND rc.book_id = ?`,
+  const { bookIds } = await c.req.json<{ bookIds?: unknown }>();
+  if (!Array.isArray(bookIds) || bookIds.length > MAX_VOTES || !bookIds.every((id) => Number.isInteger(id))) {
+    bad(`Tienes ${MAX_VOTES} votos como máximo`);
+  }
+  const ids = bookIds as number[];
+  const { results } = await c.env.DB.prepare(
+    `SELECT rc.book_id FROM rounds r JOIN round_candidates rc ON rc.round_id = r.id WHERE r.id = ? AND r.status = 'open'`,
   )
-    .bind(roundId, bookId ?? 0)
-    .first();
-  if (!ok) bad("La ronda no está abierta o el libro no es candidato");
-  await c.env.DB.prepare(
-    `INSERT INTO votes (round_id, user_id, book_id) VALUES (?, ?, ?)
-     ON CONFLICT (round_id, user_id) DO UPDATE SET book_id = excluded.book_id, created_at = datetime('now')`,
-  )
-    .bind(roundId, user.id, bookId)
-    .run();
+    .bind(roundId)
+    .all<{ book_id: number }>();
+  const candidates = new Set(results.map((r) => r.book_id));
+  if (!candidates.size) bad("La ronda no está abierta");
+  if (!ids.every((id) => candidates.has(id))) bad("Solo puedes votar a los candidatos de esta ronda");
+  await c.env.DB.batch([
+    c.env.DB.prepare(`DELETE FROM votes WHERE round_id = ? AND user_id = ?`).bind(roundId, user.id),
+    ...ids.map((bookId, i) =>
+      c.env.DB.prepare(`INSERT INTO votes (round_id, user_id, slot, book_id) VALUES (?, ?, ?, ?)`).bind(
+        roundId,
+        user.id,
+        i + 1,
+        bookId,
+      ),
+    ),
+  ]);
   return c.json({ ok: true });
 });
 
-/** Admin: cerrar la ronda. El más votado pasa a estar en curso (empate: el propuesto antes). */
+/** Admin: cerrar la ronda. El más votado pasa a estar en curso (empate: el propuesto antes); el resto se archiva. */
 app.post("/rounds/:id/close", async (c) => {
   requireAdmin(c);
   const round = await roundDetail(c, idParam(c));
@@ -699,6 +793,11 @@ app.post("/rounds/:id/close", async (c) => {
     c.env.DB.prepare(
       `UPDATE rounds SET status = 'closed', closed_at = datetime('now'), winner_book_id = ? WHERE id = ?`,
     ).bind(winner.book.id, round.id),
+    // Las que pierden dejan de estar pendientes; siguen en el histórico y se pueden volver a proponer.
+    c.env.DB.prepare(
+      `UPDATE books SET archived_at = datetime('now')
+       WHERE status = 'proposed' AND id IN (SELECT book_id FROM round_candidates WHERE round_id = ?)`,
+    ).bind(round.id),
   ]);
   return c.json({ winnerId: winner.book.id });
 });
