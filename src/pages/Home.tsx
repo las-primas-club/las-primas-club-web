@@ -67,7 +67,6 @@ export function Home() {
       <section className="hero full-bleed">
         <div className="container hero-inner">
           <div className="hero-text">
-            <span className="pill pill-light">Bienvenidos</span>
             <h1>{CLUB_NAME}</h1>
             <p className="hero-sub">{INTRO.tagline}</p>
             <p className="hero-about">{INTRO.about}</p>

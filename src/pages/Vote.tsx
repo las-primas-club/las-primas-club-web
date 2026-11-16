@@ -166,9 +166,14 @@ export function Vote({ kind }: { kind: Kind }) {
                       </div>
                     )}
                     {user && (user.isAdmin || book.proposed_by === user.id) && (
-                      <button className="link-btn" disabled={busy} onClick={() => removeProposal(book)}>
-                        quitar
-                      </button>
+                      <span className="candidate-links">
+                        <Link className="link-btn" to={`${k.paths.item(book.id)}?editar`}>
+                          editar
+                        </Link>
+                        <button className="link-btn" disabled={busy} onClick={() => removeProposal(book)}>
+                          quitar
+                        </button>
+                      </span>
                     )}
                   </div>
                 </li>
@@ -266,6 +271,9 @@ export function Vote({ kind }: { kind: Kind }) {
                   {user && !user.isAdmin && b.proposed_by === user.id && (
                     <>
                       {" "}
+                      <Link className="link-btn" to={`${k.paths.item(b.id)}?editar`}>
+                        editar
+                      </Link>
                       <button className="link-btn" disabled={busy} onClick={() => removeProposal(b)}>
                         quitar
                       </button>
@@ -287,6 +295,9 @@ export function Vote({ kind }: { kind: Kind }) {
                       >
                         {k.startAction}
                       </button>
+                      <Link className="link-btn" to={`${k.paths.item(b.id)}?editar`}>
+                        editar
+                      </Link>
                       <button className="link-btn" disabled={busy} onClick={() => removeProposal(b)}>
                         borrar
                       </button>
