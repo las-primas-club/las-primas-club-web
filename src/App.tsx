@@ -11,6 +11,7 @@ import { CurrentBook } from "./pages/CurrentBook";
 import { Home } from "./pages/Home";
 import { ReadBooks } from "./pages/ReadBooks";
 import { Vote } from "./pages/Vote";
+import { RoundHistory } from "./pages/RoundHistory";
 
 // Cada sección agrupa varias rutas (en curso, votación, historial y fichas).
 const NAV = [
@@ -19,7 +20,7 @@ const NAV = [
     to: "/actual",
     label: "Libros",
     icon: BookIcon,
-    match: (p: string) => ["/actual", "/votacion", "/leidos"].includes(p) || p.startsWith("/libros/"),
+    match: (p: string) => ["/actual", "/leidos"].includes(p) || p.startsWith("/votacion") || p.startsWith("/libros/"),
   },
   { to: "/cine", label: "Cine", icon: FilmIcon, match: (p: string) => p.startsWith("/cine") || p.startsWith("/peliculas/") },
   { to: "/admin", label: "Admin", icon: AdminIcon, match: (p: string) => p === "/admin", admin: true },
@@ -78,10 +79,12 @@ export function App() {
           <Route path="/" element={<Home />} />
           <Route path="/actual" element={<CurrentBook kind="book" />} />
           <Route path="/votacion" element={<Vote kind="book" />} />
+          <Route path="/votacion/rondas" element={<RoundHistory kind="book" />} />
           <Route path="/leidos" element={<ReadBooks kind="book" />} />
           <Route path="/libros/:id" element={<BookPage />} />
           <Route path="/cine" element={<CurrentBook kind="movie" />} />
           <Route path="/cine/votacion" element={<Vote kind="movie" />} />
+          <Route path="/cine/votacion/rondas" element={<RoundHistory kind="movie" />} />
           <Route path="/cine/vistas" element={<ReadBooks kind="movie" />} />
           <Route path="/peliculas/:id" element={<BookPage />} />
           <Route path="/admin" element={<Admin />} />

@@ -38,6 +38,7 @@ export const api = {
   book: (id: number) => request<BookDetail>("GET", `/books/${id}`),
   proposeBook: (kind: Kind, b: BookInput) => request<{ id: number }>("POST", "/books", { ...b, kind }),
   deleteBook: (id: number) => request("DELETE", `/books/${id}`),
+  repropose: (id: number) => request("POST", `/books/${id}/repropose`),
   startBook: (id: number) => request("POST", `/books/${id}/start`),
   finishBook: (id: number) => request("POST", `/books/${id}/finish`),
   rate: (id: number, score: number) => request("PUT", `/books/${id}/rating`, { score }),
@@ -80,6 +81,8 @@ export const api = {
 
   currentRound: (kind: Kind = "book") => request<Round | null>("GET", `/rounds/current?kind=${kind}`),
   openRound: (kind: Kind = "book") => request("POST", "/rounds", { kind }),
-  vote: (roundId: number, bookId: number) => request("POST", `/rounds/${roundId}/vote`, { bookId }),
+  rounds: (kind: Kind) => request<Round[]>("GET", `/rounds?kind=${kind}`),
+  /** Mis votos de la ronda (hasta MAX_VOTES ids, repetidos si van al mismo). */
+  setVotes: (roundId: number, bookIds: number[]) => request("PUT", `/rounds/${roundId}/votes`, { bookIds }),
   closeRound: (roundId: number) => request<{ winnerId: number }>("POST", `/rounds/${roundId}/close`),
 };

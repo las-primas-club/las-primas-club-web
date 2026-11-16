@@ -10,7 +10,7 @@ export function SectionNav({ kind }: { kind: Kind }) {
       <NavLink to={k.paths.now} end>
         {k.nowShort}
       </NavLink>
-      <NavLink to={k.paths.vote} end>
+      <NavLink to={k.paths.vote}>
         Votación
       </NavLink>
       <NavLink to={k.paths.done} end>

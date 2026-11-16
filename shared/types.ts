@@ -26,6 +26,8 @@ export interface Book {
   status: BookStatus;
   proposed_by: number | null;
   proposed_by_name: string | null;
+  /** Propuesta que perdió una votación: ya no está pendiente, pero se puede volver a proponer. */
+  archived_at: string | null;
   started_at: string | null;
   finished_at: string | null;
   avg_rating: number | null;
@@ -70,9 +72,25 @@ export interface Round {
   closed_at: string | null;
   winner_book_id: number | null;
   candidates: Candidate[];
-  my_vote: number | null;
+  /** Mis votos en esta ronda (0, 1 o 2 ids; repetido si di los dos al mismo). */
+  my_votes: number[];
+  /** Personas que han votado. */
   voters: number;
+  total_votes: number;
+  /** Cómo votó cada uno. Solo cuando la ronda está cerrada: mientras está abierta, los votos son anónimos. */
+  ballots: Ballot[] | null;
 }
+
+export interface Ballot {
+  user_id: number;
+  name: string;
+  picture: string | null;
+  book_ids: number[];
+}
+
+/** Límites por persona (y por sección: libros y cine por separado). */
+export const MAX_VOTES = 2;
+export const MAX_PROPOSALS = 2;
 
 export interface AppConfig {
   googleClientId: string;

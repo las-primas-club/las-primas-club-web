@@ -29,7 +29,7 @@ export interface KindInfo {
   searchLabel: string;
   searchPlaceholder: string;
   coverLabel: string;
-  paths: { now: string; vote: string; done: string; item: (id: number) => string };
+  paths: { now: string; vote: string; rounds: string; done: string; item: (id: number) => string };
 }
 
 export const KINDS: Record<Kind, KindInfo> = {
@@ -58,7 +58,7 @@ export const KINDS: Record<Kind, KindInfo> = {
     searchLabel: "Busca el libro",
     searchPlaceholder: "Título, autor/a o ISBN…",
     coverLabel: "URL de la portada",
-    paths: { now: "/actual", vote: "/votacion", done: "/leidos", item: (id) => `/libros/${id}` },
+    paths: { now: "/actual", vote: "/votacion", rounds: "/votacion/rondas", done: "/leidos", item: (id) => `/libros/${id}` },
   },
   movie: {
     kind: "movie",
@@ -85,6 +85,6 @@ export const KINDS: Record<Kind, KindInfo> = {
     searchLabel: "Busca la película",
     searchPlaceholder: "Título de la película…",
     coverLabel: "URL del póster",
-    paths: { now: "/cine", vote: "/cine/votacion", done: "/cine/vistas", item: (id) => `/peliculas/${id}` },
+    paths: { now: "/cine", vote: "/cine/votacion", rounds: "/cine/votacion/rondas", done: "/cine/vistas", item: (id) => `/peliculas/${id}` },
   },
 };

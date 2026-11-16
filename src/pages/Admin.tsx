@@ -427,8 +427,8 @@ function KindRounds({ kind }: { kind: Kind }) {
           <span className="pill pill-accent">🗳️ Ronda abierta</span>
           <h3 style={{ marginTop: 12 }}>Ronda #{open.id}</h3>
           <p className="muted">
-            Abierta el {formatDateTime(open.created_at)} · {open.candidates.length} candidatos · {open.voters} voto
-            {open.voters === 1 ? "" : "s"}
+            Abierta el {formatDateTime(open.created_at)} · {open.candidates.length} candidatos · {open.voters} persona
+            {open.voters === 1 ? "" : "s"} · {open.total_votes} voto{open.total_votes === 1 ? "" : "s"}
           </p>
           <ul className="ratings-list">
             {open.candidates.map((c) => (
