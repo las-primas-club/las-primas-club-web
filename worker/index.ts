@@ -745,7 +745,7 @@ app.post("/rounds", async (c) => {
   return c.json({ id: round!.id }, 201);
 });
 
-/** Repartir mis votos: lista de hasta MAX_VOTES candidatos (se puede repetir uno para darle los dos). Sustituye a los anteriores. */
+/** Repartir mis votos: lista de hasta MAX_VOTES candidatos (se puede repetir uno para darle los dos; nunca a una propuesta propia). Sustituye a los anteriores. */
 app.put("/rounds/:id/votes", async (c) => {
   const user = requireUser(c);
   const roundId = idParam(c);
@@ -755,13 +755,17 @@ app.put("/rounds/:id/votes", async (c) => {
   }
   const ids = bookIds as number[];
   const { results } = await c.env.DB.prepare(
-    `SELECT rc.book_id FROM rounds r JOIN round_candidates rc ON rc.round_id = r.id WHERE r.id = ? AND r.status = 'open'`,
+    `SELECT rc.book_id, b.proposed_by FROM rounds r
+     JOIN round_candidates rc ON rc.round_id = r.id
+     JOIN books b ON b.id = rc.book_id
+     WHERE r.id = ? AND r.status = 'open'`,
   )
     .bind(roundId)
-    .all<{ book_id: number }>();
-  const candidates = new Set(results.map((r) => r.book_id));
+    .all<{ book_id: number; proposed_by: number | null }>();
+  const candidates = new Map(results.map((r) => [r.book_id, r.proposed_by]));
   if (!candidates.size) bad("La ronda no está abierta");
   if (!ids.every((id) => candidates.has(id))) bad("Solo puedes votar a los candidatos de esta ronda");
+  if (ids.some((id) => candidates.get(id) === user.id)) bad("No puedes votar tus propias propuestas");
   await c.env.DB.batch([
     c.env.DB.prepare(`DELETE FROM votes WHERE round_id = ? AND user_id = ?`).bind(roundId, user.id),
     ...ids.map((bookId, i) =>

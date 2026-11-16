@@ -9,6 +9,7 @@ import { ProposeForm } from "../components/ProposeForm";
 import { RequireLogin } from "../components/LoginBox";
 import { RoundResults } from "../components/RoundResults";
 import { SectionNav } from "../components/SectionNav";
+import { Synopsis } from "../components/Synopsis";
 import { KINDS } from "../kinds";
 import { useAsync } from "../useAsync";
 
@@ -114,7 +115,7 @@ export function Vote({ kind }: { kind: Kind }) {
                       {book.author}
                       {book.proposed_by_name && ` · propuesto por ${book.proposed_by_name}`}
                     </p>
-                    {book.description && <p className="small">{book.description}</p>}
+                    {book.description && <Synopsis text={book.description} lines={3} className="small" />}
                     <div className="bar" aria-label={`${votes} votos`}>
                       <span style={{ width: `${pct}%` }} />
                     </div>
@@ -123,7 +124,9 @@ export function Vote({ kind }: { kind: Kind }) {
                     </p>
                   </div>
                   <div className="candidate-actions">
-                    {user && (
+                    {user && book.proposed_by === user.id ? (
+                      <span className="muted small own-proposal">Es tu propuesta: no puedes votarla</span>
+                    ) : user && (
                       <div className="vote-buttons">
                         {mine > 0 && (
                           <button

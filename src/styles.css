@@ -215,6 +215,10 @@ label { display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-
 .big-score { font: 3rem/1 var(--serif); }
 .panel-score p { margin: 4px 0 0; }
 .description { white-space: pre-line; font-size: 1.05rem; }
+.synopsis p { margin-bottom: 4px; }
+.synopsis .clamped { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
+.synopsis .synopsis-toggle { padding-left: 0; margin-bottom: 8px; }
+.own-proposal { font-style: italic; }
 @media (max-width: 760px) {
   .book-layout { grid-template-columns: 1fr; gap: 28px; }
   .cover-lg { width: 220px; }

@@ -9,6 +9,7 @@ import { useConfirm } from "./Dialog";
 import { EbookPanel } from "./EbookPanel";
 import { RequireLogin } from "./LoginBox";
 import { Stars } from "./Stars";
+import { Synopsis } from "./Synopsis";
 
 export function BookDetailView({ book, onChange }: { book: BookDetail; onChange: () => void }) {
   const { user } = useAuth();
@@ -157,7 +158,7 @@ export function BookDetailView({ book, onChange }: { book: BookDetail; onChange:
       {book.description && (
         <section className="detail-section">
           <h2 className="rule-title">Sobre {k.the}</h2>
-          <p className="description">{book.description}</p>
+          <Synopsis text={book.description} lines={8} className="description" />
         </section>
       )}
 
