@@ -30,6 +30,7 @@
 	// Secretos (configurar con `npx wrangler secret put NOMBRE`):
 	//   ALLOWED_EMAILS: emails permitidos separados por comas (vacío = cualquiera con Google)
 	//   ADMIN_EMAILS:   emails que pueden gestionar libros y rondas
+	//   GOOGLE_BOOKS_API_KEY (opcional): clave gratuita de Google Books para buscar libros
 	"observability": {
 		"enabled": true
 	}

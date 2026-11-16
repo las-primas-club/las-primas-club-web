@@ -1,4 +1,4 @@
-import type { AppConfig, Book, BookDetail, Round, User } from "../shared/types";
+import type { AppConfig, Book, BookDetail, BookSuggestion, Round, User } from "../shared/types";
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(`/api${path}`, {
@@ -30,6 +30,12 @@ export const api = {
   rate: (id: number, score: number) => request("PUT", `/books/${id}/rating`, { score }),
   comment: (id: number, body: string) => request("POST", `/books/${id}/comments`, { body }),
   deleteComment: (id: number) => request("DELETE", `/comments/${id}`),
+
+  searchBooks: (q: string, signal?: AbortSignal) =>
+    fetch(`/api/search?q=${encodeURIComponent(q)}`, { signal, credentials: "same-origin" }).then(async (r) => {
+      if (!r.ok) throw new Error("No se pudo buscar");
+      return (await r.json()) as BookSuggestion[];
+    }),
 
   currentRound: () => request<Round | null>("GET", "/rounds/current"),
   openRound: () => request("POST", "/rounds"),

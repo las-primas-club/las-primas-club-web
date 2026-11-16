@@ -1,6 +1,6 @@
 import { NavLink, Route, Routes } from "react-router";
 import { useAuth } from "./auth";
-import { LoginBox } from "./components/LoginBox";
+import { LoginScreen } from "./components/LoginScreen";
 import { ANNOUNCEMENT, CLUB_NAME } from "./content";
 import { BookPage } from "./pages/BookPage";
 import { CurrentBook } from "./pages/CurrentBook";
@@ -10,6 +10,8 @@ import { Vote } from "./pages/Vote";
 
 export function App() {
   const { user, ready, logout } = useAuth();
+  if (!ready) return null;
+  if (!user) return <LoginScreen />;
   return (
     <div className="app">
       <div className="announcement">{ANNOUNCEMENT}</div>
@@ -20,21 +22,15 @@ export function App() {
             <span>{CLUB_NAME}</span>
           </NavLink>
           <div className="user-area">
-            {!ready ? null : user ? (
-              <>
-                {user.picture ? (
-                  <img className="avatar-img" src={user.picture} alt="" referrerPolicy="no-referrer" />
-                ) : (
-                  <span className="avatar avatar-sm">{user.name[0]}</span>
-                )}
-                <span className="user-name">{user.name.split(" ")[0]}</span>
-                <button className="link-btn" onClick={logout}>
-                  Salir
-                </button>
-              </>
+            {user.picture ? (
+              <img className="avatar-img" src={user.picture} alt="" referrerPolicy="no-referrer" />
             ) : (
-              <LoginBox compact />
+              <span className="avatar avatar-sm">{user.name[0]}</span>
             )}
+            <span className="user-name">{user.name.split(" ")[0]}</span>
+            <button className="link-btn" onClick={logout}>
+              Salir
+            </button>
           </div>
         </div>
         <nav className="site-nav">

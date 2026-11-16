@@ -65,3 +65,12 @@ export interface AppConfig {
   googleClientId: string;
   devLogin: boolean;
 }
+
+export interface BookSuggestion {
+  key: string;
+  title: string;
+  author: string;
+  description: string;
+  cover_url: string;
+  year: string;
+}

@@ -75,12 +75,23 @@ siempre tienen acceso.
 npm run deploy    # build + migraciones remotas + wrangler deploy
 ```
 
-### 5. Despliegue automático en cada push (opcional, gratis)
+### 5. Despliegue automático con GitHub Actions
 
-En el panel de Cloudflare: **Workers & Pages → las-primas-club → Settings → Builds → Connect** y elige este repositorio de GitHub.
+`.github/workflows/deploy.yml` hace, en cada push a `main`: build → migraciones de D1 (`--remote`) → `wrangler deploy` →
+comprobación de que `/api/config` responde. En las PR solo comprueba que compila.
 
-- Build command: `npm run build`
-- Deploy command: `npx wrangler d1 migrations apply DB --remote && npx wrangler deploy`
+Configuración (una vez):
+
+1. Cloudflare → **My Profile → API Tokens → Create Token** → plantilla **Edit Cloudflare Workers**, y añade el permiso
+   **Account → D1 → Edit**. Limita *Account Resources* a tu cuenta y *Zone Resources* a `rdvl.net`.
+2. En GitHub (o con `gh`):
+   ```bash
+   gh secret set CLOUDFLARE_API_TOKEN          # pega el token cuando lo pida
+   gh variable set CLOUDFLARE_ACCOUNT_ID --body "<id de tu cuenta>"
+   ```
+
+Las migraciones nuevas van en `migrations/000N_descripcion.sql` y se aplican solas al hacer push.
+No actives también *Workers Builds* en Cloudflare, o se desplegaría dos veces.
 
 ## Cómo se usa
 

@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { Cover } from "../components/Cover";
+import { ProposeForm } from "../components/ProposeForm";
 import { RequireLogin } from "../components/LoginBox";
 import { useAsync } from "../useAsync";
 
@@ -170,54 +171,5 @@ export function Vote() {
         </RequireLogin>
       </section>
     </div>
-  );
-}
-
-function ProposeForm({ onDone }: { onDone: () => unknown }) {
-  const empty = { title: "", author: "", description: "", cover_url: "" };
-  const [form, setForm] = useState(empty);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-    setForm({ ...form, [k]: e.target.value });
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      await api.proposeBook(form);
-      setForm(empty);
-      await onDone();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <form className="propose-form" onSubmit={submit}>
-      <label>
-        Título
-        <input required value={form.title} onChange={set("title")} maxLength={200} />
-      </label>
-      <label>
-        Autor/a
-        <input required value={form.author} onChange={set("author")} maxLength={200} />
-      </label>
-      <label className="full">
-        ¿Por qué este libro? <span className="muted">(opcional)</span>
-        <textarea rows={2} value={form.description} onChange={set("description")} maxLength={2000} />
-      </label>
-      <label className="full">
-        URL de la portada <span className="muted">(opcional)</span>
-        <input type="url" placeholder="https://…" value={form.cover_url} onChange={set("cover_url")} maxLength={500} />
-      </label>
-      {error && <p className="error full">{error}</p>}
-      <button className="btn" disabled={busy}>
-        Proponer
-      </button>
-    </form>
   );
 }

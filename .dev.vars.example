@@ -4,3 +4,6 @@ ALLOWED_EMAILS=
 ADMIN_EMAILS=dev@example.com
 # Permite entrar sin Google en local (botón "Entrar (dev)"). NUNCA en producción.
 DEV_LOGIN=true
+
+# Opcional: clave gratuita de Google Books (sin ella se usa Open Library)
+GOOGLE_BOOKS_API_KEY=

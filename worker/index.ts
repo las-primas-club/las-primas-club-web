@@ -2,6 +2,7 @@ import { Hono, type Context } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { HTTPException } from "hono/http-exception";
 import type { AppConfig, Book, BookDetail, Comment, Rating, Round, User } from "../shared/types";
+import { searchBooks } from "./bookSearch";
 import { newSessionToken, parseEmailList, verifyGoogleToken, type GoogleProfile } from "./auth";
 
 type AppEnv = { Bindings: Env; Variables: { user: User | null } };
@@ -25,10 +26,27 @@ app.use("*", async (c, next) => {
     )
       .bind(token)
       .first<Omit<User, "isAdmin">>();
-    if (row) c.set("user", { ...row, isAdmin: isAdmin(c.env, row.email) });
+    // Si alguien deja de estar en la lista del club, su sesión deja de valer al momento.
+    if (row && isAllowed(c.env, row.email)) c.set("user", { ...row, isAdmin: isAdmin(c.env, row.email) });
   }
   await next();
 });
+
+// Toda la API exige sesión, salvo lo necesario para poder iniciarla.
+const PUBLIC_PATHS = new Set(["/api/config", "/api/me", "/api/auth/google", "/api/auth/dev", "/api/auth/logout"]);
+
+app.use("*", async (c, next) => {
+  if (!PUBLIC_PATHS.has(c.req.path) && !c.get("user")) {
+    return c.json({ error: "Tienes que iniciar sesión" }, 401);
+  }
+  await next();
+});
+
+function isAllowed(env: Env, email: string) {
+  const allowed = parseEmailList(env.ALLOWED_EMAILS);
+  const e = email.toLowerCase();
+  return allowed.length === 0 || allowed.includes(e) || parseEmailList(env.ADMIN_EMAILS).includes(e);
+}
 
 /** Login de desarrollo: solo con DEV_LOGIN=true y desde localhost. */
 function devLoginEnabled(c: Ctx) {
@@ -75,9 +93,7 @@ function text(value: unknown, field: string, max: number, required = true): stri
 }
 
 async function loginAs(c: Ctx, profile: GoogleProfile) {
-  const allowed = parseEmailList(c.env.ALLOWED_EMAILS);
-  const admins = parseEmailList(c.env.ADMIN_EMAILS);
-  if (allowed.length > 0 && !allowed.includes(profile.email) && !admins.includes(profile.email)) {
+  if (!isAllowed(c.env, profile.email)) {
     throw new HTTPException(403, { message: "Este email no está en la lista del club. Pide que te añadan." });
   }
   const user = await c.env.DB.prepare(
@@ -141,6 +157,19 @@ app.post("/auth/logout", async (c) => {
   if (token) await c.env.DB.prepare(`DELETE FROM sessions WHERE id = ?`).bind(token).run();
   deleteCookie(c, SESSION_COOKIE, { path: "/" });
   return c.json({ ok: true });
+});
+
+// ---------- Búsqueda de libros (Google Books / Open Library) ----------
+
+app.get("/search", async (c) => {
+  const q = (c.req.query("q") ?? "").trim().slice(0, 200);
+  if (q.length < 3) return c.json([]);
+  try {
+    return c.json(await searchBooks(q, c.env.GOOGLE_BOOKS_API_KEY));
+  } catch (e) {
+    console.error("Búsqueda de libros falló", e);
+    throw new HTTPException(502, { message: "No se pudo buscar ahora mismo" });
+  }
 });
 
 // ---------- Libros ----------
