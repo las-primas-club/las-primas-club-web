@@ -1,7 +1,7 @@
 import { useEffect } from "react";
-import { NavLink, Route, Routes, useLocation } from "react-router";
+import { Link, NavLink, Route, Routes, useLocation } from "react-router";
 import { useAuth } from "./auth";
-import { AdminIcon, BookIcon, HomeIcon, ShelfIcon, VoteIcon } from "./components/Icons";
+import { AdminIcon, BookIcon, FilmIcon, HomeIcon } from "./components/Icons";
 import { InstallBanner } from "./components/InstallBanner";
 import { LoginScreen } from "./components/LoginScreen";
 import { ANNOUNCEMENT, CLUB_NAME } from "./content";
@@ -12,11 +12,17 @@ import { Home } from "./pages/Home";
 import { ReadBooks } from "./pages/ReadBooks";
 import { Vote } from "./pages/Vote";
 
+// Cada sección agrupa varias rutas (en curso, votación, historial y fichas).
 const NAV = [
-  { to: "/", label: "Inicio", short: "Inicio", icon: HomeIcon, end: true },
-  { to: "/actual", label: "Libro actual", short: "Leyendo", icon: BookIcon },
-  { to: "/votacion", label: "Votación", short: "Votar", icon: VoteIcon },
-  { to: "/leidos", label: "Leídos", short: "Leídos", icon: ShelfIcon },
+  { to: "/", label: "Inicio", icon: HomeIcon, match: (p: string) => p === "/" },
+  {
+    to: "/actual",
+    label: "Libros",
+    icon: BookIcon,
+    match: (p: string) => ["/actual", "/votacion", "/leidos"].includes(p) || p.startsWith("/libros/"),
+  },
+  { to: "/cine", label: "Cine", icon: FilmIcon, match: (p: string) => p.startsWith("/cine") || p.startsWith("/peliculas/") },
+  { to: "/admin", label: "Admin", icon: AdminIcon, match: (p: string) => p === "/admin", admin: true },
 ];
 
 /** Al cambiar de página, volver arriba (en el móvil se nota mucho). */
@@ -31,8 +37,10 @@ function ScrollToTop() {
 
 export function App() {
   const { user, ready, logout } = useAuth();
+  const { pathname } = useLocation();
   if (!ready) return null;
   if (!user) return <LoginScreen />;
+  const nav = NAV.filter((n) => !n.admin || user.isAdmin);
   return (
     <div className="app">
       <div className="announcement">{ANNOUNCEMENT}</div>
@@ -56,12 +64,11 @@ export function App() {
         </div>
         <nav className="site-nav">
           <div className="container nav-inner">
-            {NAV.map((n) => (
-              <NavLink key={n.to} to={n.to} end={n.end}>
+            {nav.map((n) => (
+              <Link key={n.to} to={n.to} className={n.match(pathname) ? "active" : ""}>
                 {n.label}
-              </NavLink>
+              </Link>
             ))}
-            {user.isAdmin && <NavLink to="/admin">Admin</NavLink>}
           </div>
         </nav>
       </header>
@@ -69,10 +76,14 @@ export function App() {
       <main className="container">
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/actual" element={<CurrentBook />} />
-          <Route path="/votacion" element={<Vote />} />
-          <Route path="/leidos" element={<ReadBooks />} />
+          <Route path="/actual" element={<CurrentBook kind="book" />} />
+          <Route path="/votacion" element={<Vote kind="book" />} />
+          <Route path="/leidos" element={<ReadBooks kind="book" />} />
           <Route path="/libros/:id" element={<BookPage />} />
+          <Route path="/cine" element={<CurrentBook kind="movie" />} />
+          <Route path="/cine/votacion" element={<Vote kind="movie" />} />
+          <Route path="/cine/vistas" element={<ReadBooks kind="movie" />} />
+          <Route path="/peliculas/:id" element={<BookPage />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="*" element={<p>Página no encontrada.</p>} />
         </Routes>
@@ -89,18 +100,12 @@ export function App() {
       <InstallBanner />
       {/* Barra inferior tipo app, solo en móvil */}
       <nav className="tabbar" aria-label="Navegación">
-        {NAV.map(({ to, short, icon: Icon, end }) => (
-          <NavLink key={to} to={to} end={end}>
+        {nav.map(({ to, label, icon: Icon, match }) => (
+          <Link key={to} to={to} className={match(pathname) ? "active" : ""}>
             <Icon />
-            <span>{short}</span>
-          </NavLink>
+            <span>{label}</span>
+          </Link>
         ))}
-        {user.isAdmin && (
-          <NavLink to="/admin">
-            <AdminIcon />
-            <span>Admin</span>
-          </NavLink>
-        )}
       </nav>
     </div>
   );

@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Link, Navigate } from "react-router";
-import type { Book, Role } from "../../shared/types";
+import type { Book, Kind, Role } from "../../shared/types";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { Cover } from "../components/Cover";
 import { formatDate, formatDateTime } from "../format";
+import { KINDS } from "../kinds";
 import { useAsync } from "../useAsync";
 
 type Tab = "members" | "books" | "rounds";
@@ -37,12 +38,12 @@ export function Admin() {
   return (
     <div className="page admin">
       <h1 className="page-title">Administración</h1>
-      <p className="section-sub">Gestiona quién entra al club, los libros y las rondas de votación.</p>
+      <p className="section-sub">Gestiona quién entra al club, los libros, las películas y las rondas de votación.</p>
       <div className="tabs" role="tablist">
         {(
           [
             ["members", "Miembros"],
-            ["books", "Libros"],
+            ["books", "Libros y cine"],
             ["rounds", "Rondas"],
           ] as const
         ).map(([id, label]) => (
@@ -199,18 +200,44 @@ function Avatar({ name, picture }: { name: string; picture: string | null }) {
 
 // ---------- Libros ----------
 
-const STATUS_LABEL: Record<Book["status"], string> = { current: "📖 Leyendo", read: "✅ Leído", proposed: "💡 Propuesto" };
+function statusLabel(b: Book) {
+  const k = KINDS[b.kind];
+  return b.status === "current" ? k.nowLabel : b.status === "read" ? k.doneLabel : "💡 Propuesta";
+}
 
 function BooksTab() {
-  const { data: books, loading, error: loadError, reload } = useAsync(() => api.books());
+  const [filter, setFilter] = useState<Kind | "all">("all");
+  const { data: all, loading, error: loadError, reload } = useAsync(() => api.books(undefined, "all"));
   const { busy, error, run } = useAction(reload);
   const [editing, setEditing] = useState<number | null>(null);
+  const books = all?.filter((b) => filter === "all" || b.kind === filter);
 
   if (loading) return <p className="muted">Cargando…</p>;
   return (
     <div className="admin-section">
+      <div className="section-nav admin-filter">
+        {(
+          [
+            ["all", "Todo"],
+            ["book", "📖 Libros"],
+            ["movie", "🎬 Películas"],
+          ] as const
+        ).map(([id, label]) => (
+          <a
+            key={id}
+            href="#"
+            className={filter === id ? "active" : ""}
+            onClick={(e) => {
+              e.preventDefault();
+              setFilter(id);
+            }}
+          >
+            {label}
+          </a>
+        ))}
+      </div>
       {(loadError || error) && <p className="error">{loadError ?? error}</p>}
-      {books?.length === 0 && <p className="muted">Todavía no hay libros.</p>}
+      {books?.length === 0 && <p className="muted">Todavía no hay nada aquí.</p>}
       <ul className="admin-books">
         {books?.map((b) => (
           <li key={b.id} className="admin-book">
@@ -220,14 +247,18 @@ function BooksTab() {
               <>
                 <Cover book={b} size="sm" />
                 <div className="person-info">
-                  <span className="pill">{STATUS_LABEL[b.status]}</span>
-                  <Link to={`/libros/${b.id}`}>
-                    <strong>{b.title}</strong>
+                  <span className="pill">{statusLabel(b)}</span>
+                  <Link to={KINDS[b.kind].paths.item(b.id)}>
+                    <strong>
+                      {b.kind === "movie" ? "🎬 " : ""}
+                      {b.title}
+                    </strong>
                   </Link>
                   <span className="muted small">
                     {b.author}
                     {b.proposed_by_name && ` · propuesto por ${b.proposed_by_name}`}
-                    {b.finished_at && ` · terminado el ${formatDate(b.finished_at)}`}
+                    {b.year && ` · ${b.year}`}
+                    {b.finished_at && ` · ${b.kind === "movie" ? "vista" : "terminado"} el ${formatDate(b.finished_at)}`}
                   </span>
                 </div>
                 <div className="person-actions">
@@ -235,18 +266,18 @@ function BooksTab() {
                     <button
                       className="link-btn"
                       disabled={busy}
-                      onClick={() => run(() => api.startBook(b.id), `¿Empezar a leer "${b.title}" ya, sin votación?`)}
+                      onClick={() => run(() => api.startBook(b.id), `¿Elegir "${b.title}" ya, sin votación?`)}
                     >
-                      leer ya
+                      {KINDS[b.kind].startAction}
                     </button>
                   )}
                   {b.status === "current" && (
                     <button
                       className="link-btn"
                       disabled={busy}
-                      onClick={() => run(() => api.finishBook(b.id), `¿Dar por terminado "${b.title}"?`)}
+                      onClick={() => run(() => api.finishBook(b.id), KINDS[b.kind].doneConfirm)}
                     >
-                      terminar
+                      {b.kind === "movie" ? "vista" : "terminar"}
                     </button>
                   )}
                   <button className="link-btn" disabled={busy} onClick={() => setEditing(b.id)}>
@@ -280,7 +311,9 @@ function EditBook({ book, onCancel, onSaved }: { book: Book; onCancel: () => voi
     author: book.author,
     description: book.description ?? "",
     cover_url: book.cover_url ?? "",
+    year: book.year ?? "",
   });
+  const k = KINDS[book.kind];
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -291,7 +324,12 @@ function EditBook({ book, onCancel, onSaved }: { book: Book; onCancel: () => voi
     setBusy(true);
     setError(null);
     try {
-      await api.editBook(book.id, { ...form, description: form.description || null, cover_url: form.cover_url || null });
+      await api.editBook(book.id, {
+        ...form,
+        description: form.description || null,
+        cover_url: form.cover_url || null,
+        year: form.year || null,
+      });
       onSaved();
     } catch (err) {
       setError((err as Error).message);
@@ -306,15 +344,19 @@ function EditBook({ book, onCancel, onSaved }: { book: Book; onCancel: () => voi
         <input required value={form.title} onChange={set("title")} maxLength={200} />
       </label>
       <label>
-        Autor/a
+        {k.creatorLabel}
         <input required value={form.author} onChange={set("author")} maxLength={200} />
+      </label>
+      <label>
+        Año
+        <input inputMode="numeric" pattern="\d{4}" value={form.year} onChange={set("year")} maxLength={4} />
       </label>
       <label className="full">
         Sinopsis
         <textarea rows={4} value={form.description} onChange={set("description")} maxLength={2000} />
       </label>
       <label className="full">
-        URL de la portada
+        {k.coverLabel}
         <input type="url" value={form.cover_url} onChange={set("cover_url")} maxLength={500} />
       </label>
       {error && <p className="error full">{error}</p>}
@@ -333,8 +375,20 @@ function EditBook({ book, onCancel, onSaved }: { book: Book; onCancel: () => voi
 // ---------- Rondas ----------
 
 function RoundsTab() {
-  const { data: round, loading, error: loadError, reload } = useAsync(api.currentRound);
-  const { data: proposed, reload: reloadProposed } = useAsync(() => api.books("proposed"));
+  return (
+    <>
+      <h2 className="admin-subtitle">📖 Libros</h2>
+      <KindRounds kind="book" />
+      <h2 className="admin-subtitle">🎬 Cine</h2>
+      <KindRounds kind="movie" />
+    </>
+  );
+}
+
+function KindRounds({ kind }: { kind: Kind }) {
+  const k = KINDS[kind];
+  const { data: round, loading, error: loadError, reload } = useAsync(() => api.currentRound(kind), [kind]);
+  const { data: proposed, reload: reloadProposed } = useAsync(() => api.books("proposed", kind), [kind]);
   const { busy, error, run } = useAction(() => Promise.all([reload(), reloadProposed()]));
 
   if (loading) return <p className="muted">Cargando…</p>;
@@ -346,7 +400,7 @@ function RoundsTab() {
       {open ? (
         <section className="panel">
           <span className="pill pill-accent">🗳️ Ronda abierta</span>
-          <h2 style={{ marginTop: 12 }}>Ronda #{open.id}</h2>
+          <h3 style={{ marginTop: 12 }}>Ronda #{open.id}</h3>
           <p className="muted">
             Abierta el {formatDateTime(open.created_at)} · {open.candidates.length} candidatos · {open.voters} voto
             {open.voters === 1 ? "" : "s"}
@@ -364,7 +418,7 @@ function RoundsTab() {
               className="btn"
               disabled={busy}
               onClick={() =>
-                run(() => api.closeRound(open.id), "¿Cerrar la votación? El más votado pasará a ser el libro actual.")
+                run(() => api.closeRound(open.id), `¿Cerrar la votación? ${kind === "movie" ? "La más votada pasará a ser la película que toca ver" : "El más votado pasará a ser el libro actual"}.`)
               }
             >
               Cerrar y elegir ganador
@@ -375,7 +429,7 @@ function RoundsTab() {
               onClick={() =>
                 run(
                   () => api.cancelRound(open.id),
-                  "¿Cancelar la ronda? Se borrarán sus votos; los libros propuestos se mantienen.",
+                  "¿Cancelar la ronda? Se borrarán sus votos; las propuestas se mantienen.",
                 )
               }
             >
@@ -385,13 +439,13 @@ function RoundsTab() {
         </section>
       ) : (
         <section className="panel">
-          <h2>No hay ninguna ronda abierta</h2>
+          <h3>No hay ninguna ronda abierta</h3>
           <p className="muted">
             {proposed?.length
-              ? `Al abrirla entrarán ${proposed.length} libro${proposed.length === 1 ? "" : "s"} propuesto${proposed.length === 1 ? "" : "s"}.`
-              : "Todavía no hay libros propuestos; los que se propongan después entrarán también."}
+              ? `Al abrirla entrarán ${proposed.length} ${proposed.length === 1 ? k.noun : k.nounPlural} propuest${kind === "movie" ? "a" : "o"}${proposed.length === 1 ? "" : "s"}.`
+              : `Todavía no hay ${k.nounPlural} propuest${kind === "movie" ? "a" : "o"}s; ${kind === "movie" ? "las" : "los"} que se propongan después entrarán también.`}
           </p>
-          <button className="btn" disabled={busy} onClick={() => run(api.openRound)}>
+          <button className="btn" disabled={busy} onClick={() => run(() => api.openRound(kind))}>
             Abrir nueva votación
           </button>
         </section>

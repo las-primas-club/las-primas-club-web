@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
-import type { BookSuggestion } from "../../shared/types";
+import type { BookSuggestion, Kind } from "../../shared/types";
+import { useAuth } from "../auth";
+import { KINDS } from "../kinds";
 
-const EMPTY = { title: "", author: "", description: "", cover_url: "" };
+const EMPTY = { title: "", author: "", description: "", cover_url: "", year: "" };
 
-/** Proponer un libro: se busca en Google Books / Open Library y se rellena solo. */
-export function ProposeForm({ onDone }: { onDone: () => unknown }) {
+/** Proponer un libro (Google Books / Open Library) o una película (TMDB): se busca y se rellena solo. */
+export function ProposeForm({ kind, onDone }: { kind: Kind; onDone: () => unknown }) {
+  const k = KINDS[kind];
+  const { config } = useAuth();
+  const canSearch = kind === "book" || Boolean(config?.movieSearch);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<BookSuggestion[]>([]);
   const [searching, setSearching] = useState(false);
@@ -29,7 +34,7 @@ export function ProposeForm({ onDone }: { onDone: () => unknown }) {
       setSearching(true);
       setSearchError(null);
       try {
-        setResults(await api.searchBooks(q, ctrl.signal));
+        setResults(await api.searchBooks(kind, q, ctrl.signal));
       } catch (e) {
         if ((e as Error).name !== "AbortError") setSearchError("No se pudo buscar ahora mismo. Rellénalo a mano.");
       } finally {
@@ -40,10 +45,10 @@ export function ProposeForm({ onDone }: { onDone: () => unknown }) {
       clearTimeout(t);
       ctrl.abort();
     };
-  }, [query]);
+  }, [query, kind]);
 
   const pick = (s: BookSuggestion) => {
-    setForm({ title: s.title, author: s.author, description: s.description, cover_url: s.cover_url });
+    setForm({ title: s.title, author: s.author, description: s.description, cover_url: s.cover_url, year: s.year });
     setPicked(true);
     setResults([]);
     setQuery("");
@@ -58,7 +63,7 @@ export function ProposeForm({ onDone }: { onDone: () => unknown }) {
     setBusy(true);
     setError(null);
     try {
-      await api.proposeBook(form);
+      await api.proposeBook(kind, { ...form, year: form.year || null });
       setForm(EMPTY);
       setPicked(false);
       await onDone();
@@ -71,15 +76,12 @@ export function ProposeForm({ onDone }: { onDone: () => unknown }) {
 
   return (
     <div className="propose">
-      <label className="search-label">
-        Busca el libro
-        <input
-          type="search"
-          placeholder="Título, autor/a o ISBN…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </label>
+      {canSearch && (
+        <label className="search-label">
+          {k.searchLabel}
+          <input type="search" placeholder={k.searchPlaceholder} value={query} onChange={(e) => setQuery(e.target.value)} />
+        </label>
+      )}
       {searching && <p className="muted small">Buscando…</p>}
       {searchError && <p className="error small">{searchError}</p>}
       {results.length > 0 && (
@@ -87,11 +89,11 @@ export function ProposeForm({ onDone }: { onDone: () => unknown }) {
           {results.map((s) => (
             <li key={s.key}>
               <button type="button" onClick={() => pick(s)}>
-                {s.cover_url ? <img src={s.cover_url} alt="" loading="lazy" /> : <span className="no-cover">📕</span>}
+                {s.cover_url ? <img src={s.cover_url} alt="" loading="lazy" /> : <span className="no-cover">{kind === "movie" ? "🎬" : "📕"}</span>}
                 <span className="search-text">
                   <strong>{s.title}</strong>
                   <span className="muted small">
-                    {[s.author, s.year].filter(Boolean).join(" · ") || "Autor desconocido"}
+                    {[s.author, s.year].filter(Boolean).join(" · ") || (kind === "movie" ? "Dirección desconocida" : "Autor desconocido")}
                   </span>
                 </span>
               </button>
@@ -107,15 +109,19 @@ export function ProposeForm({ onDone }: { onDone: () => unknown }) {
           <input required value={form.title} onChange={set("title")} maxLength={200} />
         </label>
         <label>
-          Autor/a
+          {k.creatorLabel}
           <input required value={form.author} onChange={set("author")} maxLength={200} />
+        </label>
+        <label>
+          Año <span className="muted">(opcional)</span>
+          <input inputMode="numeric" pattern="\d{4}" placeholder="2024" value={form.year} onChange={set("year")} maxLength={4} />
         </label>
         <label className="full">
           Sinopsis o por qué lo propones <span className="muted">(opcional)</span>
           <textarea rows={4} value={form.description} onChange={set("description")} maxLength={2000} />
         </label>
         <label className="full">
-          URL de la portada <span className="muted">(opcional)</span>
+          {k.coverLabel} <span className="muted">(opcional)</span>
           <input type="url" placeholder="https://…" value={form.cover_url} onChange={set("cover_url")} maxLength={500} />
         </label>
         {error && <p className="error full">{error}</p>}
@@ -123,6 +129,9 @@ export function ProposeForm({ onDone }: { onDone: () => unknown }) {
           Proponer
         </button>
       </form>
+      {kind === "movie" && canSearch && (
+        <p className="muted small tmdb-credit">Datos e imágenes de películas: TMDB. Este sitio usa la API de TMDB, pero no está avalado ni certificado por TMDB.</p>
+      )}
     </div>
   );
 }

@@ -46,3 +46,10 @@ export const AdminIcon = () => (
     <path d="m9 12 2 2 4-4" />
   </svg>
 );
+
+export const FilmIcon = () => (
+  <svg {...base}>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4" />
+  </svg>
+);

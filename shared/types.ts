@@ -2,6 +2,9 @@
 
 export type BookStatus = "proposed" | "current" | "read";
 
+/** Libros y películas comparten modelo. En una película, author es la dirección y "read" significa vista. */
+export type Kind = "book" | "movie";
+
 export interface User {
   id: number;
   name: string;
@@ -14,10 +17,12 @@ export interface User {
 
 export interface Book {
   id: number;
+  kind: Kind;
   title: string;
   author: string;
   cover_url: string | null;
   description: string | null;
+  year: string | null;
   status: BookStatus;
   proposed_by: number | null;
   proposed_by_name: string | null;
@@ -57,6 +62,7 @@ export interface Candidate {
 
 export interface Round {
   id: number;
+  kind: Kind;
   status: "open" | "closed";
   created_at: string;
   closed_at: string | null;
@@ -71,6 +77,8 @@ export interface AppConfig {
   devLogin: boolean;
   /** Remitente de los envíos al Kindle, o null si el envío no está configurado. */
   kindleFrom: string | null;
+  /** Hay clave de TMDB: al proponer películas se buscan y rellenan solas. */
+  movieSearch: boolean;
 }
 
 export interface BookSuggestion {

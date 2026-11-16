@@ -487,3 +487,22 @@ select {
   .ebook-actions .btn { flex: 1 1 100%; }
   .kindle-row { flex-direction: column; }
 }
+
+/* ---------- Pestañas de sección (Libros / Cine) ---------- */
+.section-nav { display: flex; gap: 6px; margin: 16px 0 20px; overflow-x: auto; scrollbar-width: none; }
+.section-nav::-webkit-scrollbar { display: none; }
+.section-nav a {
+  flex: none; padding: 7px 16px; border: 1px solid var(--line); border-radius: 999px;
+  color: var(--ink); text-decoration: none; font-weight: 600; font-size: 0.9rem; background: #fff;
+}
+.section-nav a:hover { border-color: var(--ink); }
+.section-nav a.active { background: var(--ink); border-color: var(--ink); color: #fff; }
+.year { font-weight: 400; }
+.tmdb-credit { margin-top: 16px; }
+.admin-subtitle { margin: 28px 0 12px; }
+.admin-filter { display: flex; gap: 6px; margin-bottom: 16px; }
+.movie-now { display: flex; gap: 20px; align-items: center; padding: 16px; border: 1px solid var(--line); border-radius: 8px; color: inherit; text-decoration: none; margin-bottom: 24px; }
+.movie-now:hover { border-color: var(--ink); }
+.movie-now h3 { margin: 10px 0 4px; }
+.movie-now p { margin: 0 0 8px; }
+.page > .section-nav:first-child { margin-top: 0; }

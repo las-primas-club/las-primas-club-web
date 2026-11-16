@@ -1,8 +1,9 @@
 import { Hono, type Context } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { HTTPException } from "hono/http-exception";
-import type { AccessRequest, AppConfig, Book, BookDetail, Comment, Member, Rating, Round, User } from "../shared/types";
+import type { AccessRequest, AppConfig, Book, BookDetail, Comment, Kind, Member, Rating, Round, User } from "../shared/types";
 import { searchBooks } from "./bookSearch";
+import { searchMovies } from "./movieSearch";
 import {
   KINDLE_ADDRESS,
   KindleSendError,
@@ -93,6 +94,13 @@ function bad(message: string): never {
   throw new HTTPException(400, { message });
 }
 
+/** Libro o película. Sin indicar, libro (así siguen funcionando las llamadas de antes). */
+function kindOf(value: unknown): Kind {
+  if (value === undefined || value === null || value === "" || value === "book") return "book";
+  if (value === "movie") return "movie";
+  bad("Tipo no válido");
+}
+
 function idParam(c: Ctx, name = "id"): number {
   const id = Number(c.req.param(name));
   if (!Number.isInteger(id) || id <= 0) bad("Id no válido");
@@ -164,6 +172,7 @@ app.get("/config", (c) =>
     googleClientId: c.env.GOOGLE_CLIENT_ID ?? "",
     devLogin: devLoginEnabled(c),
     kindleFrom: kindleEnabled(c.env) ? c.env.KINDLE_FROM : null,
+    movieSearch: Boolean(c.env.TMDB_API_KEY),
   }),
 );
 
@@ -221,7 +230,9 @@ app.post("/auth/logout", async (c) => {
 app.get("/search", async (c) => {
   const q = (c.req.query("q") ?? "").trim().slice(0, 200);
   if (q.length < 3) return c.json([]);
+  const kind = kindOf(c.req.query("kind"));
   try {
+    if (kind === "movie") return c.json(c.env.TMDB_API_KEY ? await searchMovies(q, c.env.TMDB_API_KEY) : []);
     return c.json(await searchBooks(q, c.env.GOOGLE_BOOKS_API_KEY));
   } catch (e) {
     console.error("Búsqueda de libros falló", e);
@@ -232,20 +243,33 @@ app.get("/search", async (c) => {
 // ---------- Libros ----------
 
 const BOOK_SELECT = `
-  SELECT b.id, b.title, b.author, b.cover_url, b.description, b.status,
+  SELECT b.id, b.kind, b.title, b.author, b.cover_url, b.description, b.year, b.status,
          b.started_at, b.finished_at, b.proposed_by, p.name AS proposed_by_name, b.epub_name, b.epub_size,
          ROUND(AVG(r.score), 1) AS avg_rating, COUNT(r.score) AS rating_count
   FROM books b
   LEFT JOIN users p ON p.id = b.proposed_by
   LEFT JOIN ratings r ON r.book_id = b.id`;
 
+/** Lista de libros o películas (?kind=movie). Con ?kind=all, todo (lo usa el panel de admin). */
 app.get("/books", async (c) => {
   const status = c.req.query("status");
-  const where = status ? `WHERE b.status = ?` : "";
-  const stmt = c.env.DB.prepare(
+  const kindParam = c.req.query("kind");
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+  if (kindParam !== "all") {
+    conditions.push("b.kind = ?");
+    params.push(kindOf(kindParam));
+  }
+  if (status) {
+    conditions.push("b.status = ?");
+    params.push(status);
+  }
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const { results } = await c.env.DB.prepare(
     `${BOOK_SELECT} ${where} GROUP BY b.id ORDER BY COALESCE(b.finished_at, b.started_at, b.created_at) DESC`,
-  );
-  const { results } = await (status ? stmt.bind(status) : stmt).all<Book>();
+  )
+    .bind(...params)
+    .all<Book>();
   return c.json(results);
 });
 
@@ -274,7 +298,9 @@ async function bookDetail(c: Ctx, where: string, ...params: unknown[]): Promise<
   };
 }
 
-app.get("/books/current", async (c) => c.json(await bookDetail(c, `b.status = 'current'`)));
+app.get("/books/current", async (c) =>
+  c.json(await bookDetail(c, `b.status = 'current' AND b.kind = ?`, kindOf(c.req.query("kind")))),
+);
 
 app.get("/books/:id", async (c) => {
   const book = await bookDetail(c, `b.id = ?`, idParam(c));
@@ -285,28 +311,34 @@ app.get("/books/:id", async (c) => {
 function bookFields(body: Record<string, unknown>) {
   const cover = text(body.cover_url, "portada", 500, false);
   if (cover && !/^https:\/\//.test(cover)) bad("La portada debe ser una URL https://");
+  const year = text(body.year, "año", 4, false);
+  if (year && !/^\d{4}$/.test(year)) bad("El año debe tener 4 cifras");
   return {
     title: text(body.title, "título", 200),
     author: text(body.author, "autor", 200),
     description: text(body.description, "descripción", 2000, false),
     cover,
+    year,
   };
 }
 
-/** Proponer un libro. Si hay una ronda abierta, entra directamente como candidato. */
+/** Proponer un libro o una película. Si hay una ronda abierta de su tipo, entra directamente como candidato. */
 app.post("/books", async (c) => {
   const user = requireUser(c);
-  const { title, author, description, cover } = bookFields(await c.req.json<Record<string, unknown>>());
+  const body = await c.req.json<Record<string, unknown>>();
+  const kind = kindOf(body.kind);
+  const { title, author, description, cover, year } = bookFields(body);
 
   const book = await c.env.DB.prepare(
-    `INSERT INTO books (title, author, description, cover_url, proposed_by) VALUES (?, ?, ?, ?, ?) RETURNING id`,
+    `INSERT INTO books (kind, title, author, description, cover_url, year, proposed_by) VALUES (?, ?, ?, ?, ?, ?, ?)
+     RETURNING id`,
   )
-    .bind(title, author, description, cover, user.id)
+    .bind(kind, title, author, description, cover, year, user.id)
     .first<{ id: number }>();
   await c.env.DB.prepare(
-    `INSERT OR IGNORE INTO round_candidates (round_id, book_id) SELECT id, ? FROM rounds WHERE status = 'open'`,
+    `INSERT OR IGNORE INTO round_candidates (round_id, book_id) SELECT id, ? FROM rounds WHERE status = 'open' AND kind = ?`,
   )
-    .bind(book!.id)
+    .bind(book!.id, kind)
     .run();
   return c.json({ id: book!.id }, 201);
 });
@@ -332,20 +364,26 @@ app.delete("/books/:id", async (c) => {
 app.patch("/books/:id", async (c) => {
   requireAdmin(c);
   const id = idParam(c);
-  const { title, author, description, cover } = bookFields(await c.req.json<Record<string, unknown>>());
-  const res = await c.env.DB.prepare(`UPDATE books SET title = ?, author = ?, description = ?, cover_url = ? WHERE id = ?`)
-    .bind(title, author, description, cover, id)
+  const { title, author, description, cover, year } = bookFields(await c.req.json<Record<string, unknown>>());
+  const res = await c.env.DB.prepare(
+    `UPDATE books SET title = ?, author = ?, description = ?, cover_url = ?, year = ? WHERE id = ?`,
+  )
+    .bind(title, author, description, cover, year, id)
     .run();
   if (!res.meta.changes) throw new HTTPException(404, { message: "Libro no encontrado" });
   return c.json({ ok: true });
 });
 
-/** Admin: empezar a leer un libro ya (sin votación), p. ej. el primero del club. */
+/** Admin: empezar a leer (o ver) uno ya, sin votación. El que estaba en curso de su mismo tipo pasa a leído/visto. */
 app.post("/books/:id/start", async (c) => {
   requireAdmin(c);
   const id = idParam(c);
+  const book = await c.env.DB.prepare(`SELECT kind FROM books WHERE id = ?`).bind(id).first<{ kind: Kind }>();
+  if (!book) throw new HTTPException(404, { message: "No encontrado" });
   await c.env.DB.batch([
-    c.env.DB.prepare(`UPDATE books SET status = 'read', finished_at = datetime('now') WHERE status = 'current'`),
+    c.env.DB.prepare(
+      `UPDATE books SET status = 'read', finished_at = datetime('now') WHERE status = 'current' AND kind = ?`,
+    ).bind(book.kind),
     c.env.DB.prepare(`UPDATE books SET status = 'current', started_at = datetime('now') WHERE id = ?`).bind(id),
     c.env.DB.prepare(`DELETE FROM round_candidates WHERE book_id = ?`).bind(id),
   ]);
@@ -414,8 +452,11 @@ app.put("/books/:id/epub", async (c) => {
   requireAdmin(c);
   const id = idParam(c);
   if (Number(c.req.header("content-length") ?? 0) > MAX_EPUB_BYTES) bad("El epub no puede pasar de 25 MB");
-  const book = await c.env.DB.prepare(`SELECT title FROM books WHERE id = ?`).bind(id).first<{ title: string }>();
+  const book = await c.env.DB.prepare(`SELECT title, kind FROM books WHERE id = ?`)
+    .bind(id)
+    .first<{ title: string; kind: Kind }>();
   if (!book) throw new HTTPException(404, { message: "Libro no encontrado" });
+  if (book.kind !== "book") bad("Solo los libros pueden tener epub");
 
   const data = await c.req.arrayBuffer();
   if (!data.byteLength) bad("El archivo está vacío");
@@ -540,7 +581,7 @@ app.get("/kindle-file/:token", async (c) => {
 async function roundDetail(c: Ctx, roundId: number): Promise<Round> {
   const user = c.get("user");
   const [round, candidates, myVote, voters] = await c.env.DB.batch([
-    c.env.DB.prepare(`SELECT id, status, created_at, closed_at, winner_book_id FROM rounds WHERE id = ?`).bind(roundId),
+    c.env.DB.prepare(`SELECT id, kind, status, created_at, closed_at, winner_book_id FROM rounds WHERE id = ?`).bind(roundId),
     c.env.DB.prepare(
       `${BOOK_SELECT}
        JOIN round_candidates rc ON rc.book_id = b.id AND rc.round_id = ?1
@@ -561,24 +602,27 @@ async function roundDetail(c: Ctx, roundId: number): Promise<Round> {
   };
 }
 
-/** Ronda abierta, o la última cerrada si no hay ninguna abierta. */
+/** Ronda abierta (de libros o de cine, ?kind=movie), o la última cerrada si no hay ninguna abierta. */
 app.get("/rounds/current", async (c) => {
   const row = await c.env.DB.prepare(
-    `SELECT id FROM rounds ORDER BY (status = 'open') DESC, id DESC LIMIT 1`,
-  ).first<{ id: number }>();
+    `SELECT id FROM rounds WHERE kind = ? ORDER BY (status = 'open') DESC, id DESC LIMIT 1`,
+  )
+    .bind(kindOf(c.req.query("kind")))
+    .first<{ id: number }>();
   return c.json(row ? await roundDetail(c, row.id) : null);
 });
 
 /** Admin: abrir una ronda nueva. Entran todas las propuestas pendientes. */
 app.post("/rounds", async (c) => {
   requireAdmin(c);
-  const open = await c.env.DB.prepare(`SELECT 1 FROM rounds WHERE status = 'open'`).first();
+  const kind = kindOf((await c.req.json<{ kind?: string }>().catch(() => ({}) as { kind?: string })).kind);
+  const open = await c.env.DB.prepare(`SELECT 1 FROM rounds WHERE status = 'open' AND kind = ?`).bind(kind).first();
   if (open) bad("Ya hay una ronda abierta");
-  const round = await c.env.DB.prepare(`INSERT INTO rounds DEFAULT VALUES RETURNING id`).first<{ id: number }>();
+  const round = await c.env.DB.prepare(`INSERT INTO rounds (kind) VALUES (?) RETURNING id`).bind(kind).first<{ id: number }>();
   await c.env.DB.prepare(
-    `INSERT INTO round_candidates (round_id, book_id) SELECT ?, id FROM books WHERE status = 'proposed'`,
+    `INSERT INTO round_candidates (round_id, book_id) SELECT ?, id FROM books WHERE status = 'proposed' AND kind = ?`,
   )
-    .bind(round!.id)
+    .bind(round!.id, kind)
     .run();
   return c.json({ id: round!.id }, 201);
 });
@@ -603,7 +647,7 @@ app.post("/rounds/:id/vote", async (c) => {
   return c.json({ ok: true });
 });
 
-/** Admin: cerrar la ronda. El más votado pasa a ser el libro en curso (empate: el propuesto antes). */
+/** Admin: cerrar la ronda. El más votado pasa a estar en curso (empate: el propuesto antes). */
 app.post("/rounds/:id/close", async (c) => {
   requireAdmin(c);
   const round = await roundDetail(c, idParam(c));
@@ -611,7 +655,9 @@ app.post("/rounds/:id/close", async (c) => {
   const winner = round.candidates[0];
   if (!winner || winner.votes === 0) bad("Nadie ha votado todavía");
   await c.env.DB.batch([
-    c.env.DB.prepare(`UPDATE books SET status = 'read', finished_at = datetime('now') WHERE status = 'current'`),
+    c.env.DB.prepare(
+      `UPDATE books SET status = 'read', finished_at = datetime('now') WHERE status = 'current' AND kind = ?`,
+    ).bind(round.kind),
     c.env.DB.prepare(`UPDATE books SET status = 'current', started_at = datetime('now') WHERE id = ?`).bind(
       winner.book.id,
     ),

@@ -3,6 +3,7 @@ import type { BookDetail } from "../../shared/types";
 import { api } from "../api";
 import { useAuth } from "../auth";
 import { formatDate, formatDateTime } from "../format";
+import { KINDS } from "../kinds";
 import { Cover } from "./Cover";
 import { EbookPanel } from "./EbookPanel";
 import { RequireLogin } from "./LoginBox";
@@ -10,6 +11,7 @@ import { Stars } from "./Stars";
 
 export function BookDetailView({ book, onChange }: { book: BookDetail; onChange: () => void }) {
   const { user } = useAuth();
+  const k = KINDS[book.kind];
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,9 +38,10 @@ export function BookDetailView({ book, onChange }: { book: BookDetail; onChange:
     });
   };
 
+  const movie = book.kind === "movie";
   const dates = [
-    book.started_at && `Empezado el ${formatDate(book.started_at)}`,
-    book.finished_at && `terminado el ${formatDate(book.finished_at)}`,
+    book.started_at && `${movie ? "Elegida" : "Empezado"} el ${formatDate(book.started_at)}`,
+    book.finished_at && `${movie ? "vista" : "terminado"} el ${formatDate(book.finished_at)}`,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -52,15 +55,19 @@ export function BookDetailView({ book, onChange }: { book: BookDetail; onChange:
 
         <div className="book-info-col">
           <div className="pills">
-            {book.status === "current" && <span className="pill pill-accent">📖 Leyendo ahora</span>}
-            {book.status === "read" && <span className="pill">✅ Leído</span>}
-            {book.status === "proposed" && <span className="pill">💡 Propuesto</span>}
-            {book.avg_rating != null && book.avg_rating >= 4.5 && <span className="pill">🏆 Favorito del club</span>}
+            {book.status === "current" && <span className="pill pill-accent">{k.nowLabel}</span>}
+            {book.status === "read" && <span className="pill">{k.doneLabel}</span>}
+            {book.status === "proposed" && <span className="pill">💡 Propuesta</span>}
+            {book.avg_rating != null && book.avg_rating >= 4.5 && <span className="pill">🏆 Favorit{movie ? "a" : "o"} del club</span>}
           </div>
-          <h1 className="book-title">{book.title}</h1>
+          <h1 className="book-title">
+            {book.title}
+            {book.year && <span className="muted year"> ({book.year})</span>}
+          </h1>
           {dates && <p className="muted small">{dates}</p>}
           <p className="book-meta">
-            De <strong>{book.author}</strong>
+            {k.byPrefix}
+            <strong>{book.author}</strong>
             {book.proposed_by_name && <span className="muted"> · propuesto por {book.proposed_by_name}</span>}
           </p>
 
@@ -80,7 +87,7 @@ export function BookDetailView({ book, onChange }: { book: BookDetail; onChange:
 
               <div className="panel-box">
                 <p className="panel-label">Tu puntuación</p>
-                <RequireLogin message="Entra para puntuar el libro.">
+                <RequireLogin message={`Entra para puntuar ${k.the}.`}>
                   <div className="my-rating">
                     <Stars value={book.my_rating} onChange={(v) => run(() => api.rate(book.id, v))} size="lg" />
                     <span className="muted small">
@@ -105,9 +112,9 @@ export function BookDetailView({ book, onChange }: { book: BookDetail; onChange:
                 <button
                   className="btn btn-block"
                   disabled={busy}
-                  onClick={() => confirm("¿Dar por terminado este libro?") && run(() => api.finishBook(book.id))}
+                  onClick={() => confirm(k.doneConfirm) && run(() => api.finishBook(book.id))}
                 >
-                  Marcar como terminado
+                  {k.doneAction}
                 </button>
               )}
             </div>
@@ -119,12 +126,12 @@ export function BookDetailView({ book, onChange }: { book: BookDetail; onChange:
 
       {book.description && (
         <section className="detail-section">
-          <h2 className="rule-title">Sobre el libro</h2>
+          <h2 className="rule-title">Sobre {k.the}</h2>
           <p className="description">{book.description}</p>
         </section>
       )}
 
-      <EbookPanel book={book} onChange={onChange} />
+      {book.kind === "book" && <EbookPanel book={book} onChange={onChange} />}
 
       <section className="detail-section">
         <h2 className="rule-title">Comentarios ({book.comments.length})</h2>

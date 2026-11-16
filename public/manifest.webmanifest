@@ -1,7 +1,7 @@
 {
   "name": "Las Primas Club",
   "short_name": "Las Primas Club",
-  "description": "Club de lectura: libro actual, votaciones, puntuaciones y comentarios.",
+  "description": "Club de lectura y cine: libro actual, película, votaciones, puntuaciones y comentarios.",
   "lang": "es",
   "id": "/",
   "start_url": "/",
@@ -19,6 +19,7 @@
   ],
   "shortcuts": [
     { "name": "Libro actual", "url": "/actual", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Votación", "url": "/votacion", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
+    { "name": "Votación", "url": "/votacion", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Cine", "url": "/cine", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
   ]
 }

@@ -37,6 +37,7 @@
 	// Secretos (configurar con `npx wrangler secret put NOMBRE`):
 	//   ADMIN_EMAILS (opcional): admins de emergencia, siempre pueden entrar. Los miembros se gestionan en /admin.
 	//   GOOGLE_BOOKS_API_KEY (opcional): clave gratuita de Google Books para buscar libros
+	//   TMDB_API_KEY (opcional): clave gratuita de themoviedb.org para buscar películas
 	//   RESEND_API_KEY (opcional): clave de Resend (gratis, 100 emails/día) para "Enviar a mi Kindle"
 	"observability": {
 		"enabled": true

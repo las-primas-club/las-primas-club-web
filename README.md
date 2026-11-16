@@ -74,7 +74,18 @@ secreto opcional `ADMIN_EMAILS` son siempre admins y no se pueden quitar desde l
 npx wrangler secret put ADMIN_EMAILS     # opcional, p. ej. tu-email@gmail.com
 ```
 
-### 4. Enviar al Kindle (opcional, gratis)
+### 4. Buscar películas (opcional, gratis)
+
+Al proponer una película se busca en [TMDB](https://www.themoviedb.org) y se rellenan solos póster, año, dirección y
+sinopsis. Crea una cuenta gratuita → **Ajustes → API** → pide una clave (uso personal / no comercial) y guárdala:
+
+```bash
+npx wrangler secret put TMDB_API_KEY   # vale la "API Key" o el "API Read Access Token"
+```
+
+Sin clave, las películas se proponen a mano (título, dirección, año…).
+
+### 5. Enviar al Kindle (opcional, gratis)
 
 Los epub se guardan en **Workers KV** (namespace `EPUBS`, ya en `wrangler.jsonc`; gratis hasta 1 GB y 25 MB por archivo).
 Descargarlos funciona sin más. Para el botón **Enviar a mi Kindle** hace falta [Resend](https://resend.com)
@@ -92,13 +103,13 @@ Descargarlos funciona sin más. Para el botón **Enviar a mi Kindle** hace falta
 Resend descarga el epub de un enlace temporal (`/api/kindle-file/<token>`, válido 60 min) en vez de recibirlo en base64,
 para no pasar de los 10 ms de CPU del plan gratuito de Workers.
 
-### 5. Desplegar
+### 6. Desplegar
 
 ```bash
 npm run deploy    # build + migraciones remotas + wrangler deploy
 ```
 
-### 6. Despliegue automático con GitHub Actions
+### 7. Despliegue automático con GitHub Actions
 
 `.github/workflows/deploy.yml` hace, en cada push a `main`: build → migraciones de D1 (`--remote`) → `wrangler deploy` →
 comprobación de que `/api/config` responde. En las PR solo comprueba que compila.
@@ -124,11 +135,13 @@ No actives también *Workers Builds* en Cloudflare, o se desplegaría dos veces.
 - **Admin** (panel en `/admin`): gestiona miembros, edita o borra libros y abre, cierra o cancela rondas. Abre la ronda y la cierra (el más votado pasa a ser el libro en curso y el anterior se marca como leído).
   También puede marcar un libro como terminado o empezar uno sin votación (*leer ya*, útil para el primer libro).
 - **Puntuar y comentar**: en el libro en curso y en cualquier libro leído.
+- **Cine**: igual que los libros, con su propia ronda de votación (pueden estar abiertas las dos a la vez), la película
+  que toca ver, puntuaciones, comentarios y el historial de vistas. Internamente comparten tablas (`books.kind`).
 - **Epub**: un admin lo sube desde la ficha del libro (*subir epub*). Cualquier miembro puede descargarlo o, tras guardar
   su dirección `@kindle.com`, mandárselo al Kindle (máx. 10 envíos al día por persona).
 
 ## Roadmap
 
-- [ ] Sección de cine (mismo modelo: propuestas, votación y reseñas)
+- [x] Sección de cine (mismo modelo: propuestas, votación y reseñas)
 - [x] Subir epub y descargarlos (Workers KV)
 - [x] Enviar al Kindle por email (Resend)

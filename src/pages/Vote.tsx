@@ -5,12 +5,16 @@ import { useAuth } from "../auth";
 import { Cover } from "../components/Cover";
 import { ProposeForm } from "../components/ProposeForm";
 import { RequireLogin } from "../components/LoginBox";
+import { SectionNav } from "../components/SectionNav";
+import { KINDS } from "../kinds";
 import { useAsync } from "../useAsync";
+import type { Kind } from "../../shared/types";
 
-export function Vote() {
+export function Vote({ kind }: { kind: Kind }) {
+  const k = KINDS[kind];
   const { user } = useAuth();
-  const { data: round, loading, error: loadError, reload: reloadRound } = useAsync(api.currentRound, [user?.id]);
-  const { data: proposed, reload: reloadProposed } = useAsync(() => api.books("proposed"));
+  const { data: round, loading, error: loadError, reload: reloadRound } = useAsync(() => api.currentRound(kind), [user?.id, kind]);
+  const { data: proposed, reload: reloadProposed } = useAsync(() => api.books("proposed", kind), [kind]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,20 +32,21 @@ export function Vote() {
     }
   };
 
-  if (loading) return <p className="muted">Cargando…</p>;
+  if (loading) return <SectionNav kind={kind} />;
   const open = round?.status === "open" ? round : null;
   const winner = round?.status === "closed" ? round.candidates.find((c) => c.book.id === round.winner_book_id) : null;
 
   return (
     <div className="vote-page page">
-      <h1 className="page-title">Votación</h1>
+      <SectionNav kind={kind} />
+      <h1 className="page-title">Votación{kind === "movie" ? " de cine" : ""}</h1>
       {loadError && <p className="error">{loadError}</p>}
       {error && <p className="error">{error}</p>}
 
       {open ? (
         <section>
           <p className="lead">
-            Elige el próximo libro. Tienes un voto y puedes cambiarlo mientras la ronda siga abierta.{" "}
+            {k.voteLead} Tienes un voto y puedes cambiarlo mientras la ronda siga abierta.{" "}
             <span className="muted">
               {open.voters} voto{open.voters === 1 ? "" : "s"} en total.
             </span>
@@ -56,7 +61,10 @@ export function Vote() {
                   <Cover book={book} size="sm" />
                   <div className="candidate-info">
                     {mine && <span className="pill pill-accent">✔ Tu voto</span>}
-                    <h3>{book.title}</h3>
+                    <h3>
+                      <Link to={k.paths.item(book.id)}>{book.title}</Link>
+                      {book.year && <span className="muted year"> ({book.year})</span>}
+                    </h3>
                     <p className="muted">
                       {book.author}
                       {book.proposed_by_name && ` · propuesto por ${book.proposed_by_name}`}
@@ -101,7 +109,7 @@ export function Vote() {
                 className="btn"
                 disabled={busy}
                 onClick={() =>
-                  confirm("¿Cerrar la votación? El libro más votado pasará a ser el libro en curso.") &&
+                  confirm(`¿Cerrar la votación? ${kind === "movie" ? "La película más votada pasará a ser la siguiente que veamos" : "El libro más votado pasará a ser el libro en curso"}.`) &&
                   run(() => api.closeRound(open.id))
                 }
               >
@@ -111,7 +119,7 @@ export function Vote() {
                 className="btn btn-ghost"
                 disabled={busy}
                 onClick={() =>
-                  confirm("¿Cancelar la ronda? Se borrarán sus votos; los libros propuestos se mantienen.") &&
+                  confirm(`¿Cancelar la ronda? Se borrarán sus votos; las propuestas se mantienen.`) &&
                   run(() => api.cancelRound(open.id))
                 }
               >
@@ -124,14 +132,14 @@ export function Vote() {
         <section className="panel">
           {winner ? (
             <p>
-              La última votación la ganó <Link to={`/libros/${winner.book.id}`}>{winner.book.title}</Link> con {winner.votes}{" "}
+              La última votación la ganó <Link to={k.paths.item(winner.book.id)}>{winner.book.title}</Link> con {winner.votes}{" "}
               voto{winner.votes === 1 ? "" : "s"}.
             </p>
           ) : (
             <p>No hay ninguna votación abierta.</p>
           )}
           <p className="muted">
-            Puedes ir proponiendo libros; entrarán como candidatos en la próxima ronda.
+            Puedes ir proponiendo {k.nounPlural}; entrarán como candidatos en la próxima ronda.
           </p>
           {proposed && proposed.length > 0 && (
             <ul className="proposed-list">
@@ -145,10 +153,10 @@ export function Vote() {
                         className="link-btn"
                         disabled={busy}
                         onClick={() =>
-                          confirm(`¿Empezar a leer "${b.title}" ya, sin votación?`) && run(() => api.startBook(b.id))
+                          confirm(`¿Elegir "${b.title}" ya, sin votación?`) && run(() => api.startBook(b.id))
                         }
                       >
-                        leer ya
+                        {k.startAction}
                       </button>
                       <button
                         className="link-btn"
@@ -166,7 +174,7 @@ export function Vote() {
           {user?.isAdmin && (
             <div className="admin-bar">
               <span>Admin</span>
-              <button className="btn" disabled={busy} onClick={() => run(api.openRound)}>
+              <button className="btn" disabled={busy} onClick={() => run(() => api.openRound(kind))}>
                 Abrir nueva votación
               </button>
             </div>
@@ -175,9 +183,9 @@ export function Vote() {
       )}
 
       <section className="detail-section">
-        <h2 className="rule-title">Proponer un libro</h2>
-        <RequireLogin message="Entra para proponer libros.">
-          <ProposeForm onDone={reload} />
+        <h2 className="rule-title">{k.proposeTitle}</h2>
+        <RequireLogin message={`Entra para proponer ${k.nounPlural}.`}>
+          <ProposeForm kind={kind} onDone={reload} />
         </RequireLogin>
       </section>
     </div>

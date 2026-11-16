@@ -3,13 +3,31 @@ import { api } from "../api";
 import { BookCard } from "../components/BookCard";
 import { Cover } from "../components/Cover";
 import { INTRO } from "../content";
+import { KINDS } from "../kinds";
 import { useAsync } from "../useAsync";
+import type { Round } from "../../shared/types";
+
+function VoteBanner({ round, to, label }: { round: Round | null | undefined; to: string; label: string }) {
+  if (round?.status !== "open") return null;
+  return (
+    <Link to={to} className="vote-banner">
+      <span className="pill pill-accent">🗳️ {label}</span>
+      <strong>
+        {round.candidates.length} candidatos · {round.voters} voto{round.voters === 1 ? "" : "s"}
+      </strong>
+      <span className="vote-banner-cta">Votar →</span>
+    </Link>
+  );
+}
 
 export function Home() {
-  const { data: book } = useAsync(api.currentBook);
-  const { data: round } = useAsync(api.currentRound);
-  const { data: read } = useAsync(() => api.books("read"));
-  const open = round?.status === "open" ? round : null;
+  const { data: book } = useAsync(() => api.currentBook("book"));
+  const { data: round } = useAsync(() => api.currentRound("book"));
+  const { data: read } = useAsync(() => api.books("read", "book"));
+  const { data: movie } = useAsync(() => api.currentBook("movie"));
+  const { data: movieRound } = useAsync(() => api.currentRound("movie"));
+  const { data: watched } = useAsync(() => api.books("read", "movie"));
+  const cine = KINDS.movie;
 
   return (
     <div className="home">
@@ -33,15 +51,8 @@ export function Home() {
         </div>
       </section>
 
-      {open && (
-        <Link to="/votacion" className="vote-banner">
-          <span className="pill pill-accent">🗳️ Votación abierta</span>
-          <strong>
-            {open.candidates.length} candidatos · {open.voters} voto{open.voters === 1 ? "" : "s"}
-          </strong>
-          <span className="vote-banner-cta">Votar →</span>
-        </Link>
-      )}
+      <VoteBanner round={round} to="/votacion" label="Votación de libros abierta" />
+      <VoteBanner round={movieRound} to={cine.paths.vote} label="Votación de cine abierta" />
 
       <section className="section">
         <div className="section-head">
@@ -62,6 +73,43 @@ export function Home() {
             </div>
           ))}
         </div>
+      </section>
+
+      <section className="section">
+        <div className="section-head">
+          <h2>Cine</h2>
+          <Link to={cine.paths.now} className="see-more">
+            Ver sección ›
+          </Link>
+        </div>
+        <p className="section-sub">Entre libro y libro, también vemos películas juntos.</p>
+        {movie ? (
+          <Link to={cine.paths.now} className="movie-now">
+            <Cover book={movie} size="md" />
+            <div>
+              <span className="pill pill-accent">{cine.nowLabel}</span>
+              <h3>
+                {movie.title}
+                {movie.year && <span className="muted year"> ({movie.year})</span>}
+              </h3>
+              <p className="muted">{cine.byPrefix}{movie.author}</p>
+              <span className="see-more">Puntuar y comentar ›</span>
+            </div>
+          </Link>
+        ) : (
+          <p>
+            Todavía no hay película elegida. <Link to={cine.paths.vote}>Propón una</Link> para la próxima votación.
+          </p>
+        )}
+        {watched && watched.length > 0 && (
+          <ul className="card-row">
+            {watched.slice(0, 6).map((m) => (
+              <li key={m.id}>
+                <BookCard book={m} />
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       {read && read.length > 0 && (

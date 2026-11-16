@@ -1,4 +1,12 @@
-import type { AccessRequest, AppConfig, Book, BookDetail, BookSuggestion, Member, Role, Round, User } from "../shared/types";
+import type { AccessRequest, AppConfig, Book, BookDetail, BookSuggestion, Kind, Member, Role, Round, User } from "../shared/types";
+
+export interface BookInput {
+  title: string;
+  author: string;
+  description?: string | null;
+  cover_url?: string | null;
+  year?: string | null;
+}
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(`/api${path}`, {
@@ -23,11 +31,12 @@ export const api = {
   loginDev: (name: string, email: string) => request("POST", "/auth/dev", { name, email }),
   logout: () => request("POST", "/auth/logout"),
 
-  books: (status?: string) => request<Book[]>("GET", `/books${status ? `?status=${status}` : ""}`),
-  currentBook: () => request<BookDetail | null>("GET", "/books/current"),
+  /** kind "all" devuelve libros y películas (panel de admin). */
+  books: (status: string | undefined, kind: Kind | "all" = "book") =>
+    request<Book[]>("GET", `/books?kind=${kind}${status ? `&status=${status}` : ""}`),
+  currentBook: (kind: Kind = "book") => request<BookDetail | null>("GET", `/books/current?kind=${kind}`),
   book: (id: number) => request<BookDetail>("GET", `/books/${id}`),
-  proposeBook: (b: { title: string; author: string; description?: string; cover_url?: string }) =>
-    request<{ id: number }>("POST", "/books", b),
+  proposeBook: (kind: Kind, b: BookInput) => request<{ id: number }>("POST", "/books", { ...b, kind }),
   deleteBook: (id: number) => request("DELETE", `/books/${id}`),
   startBook: (id: number) => request("POST", `/books/${id}/start`),
   finishBook: (id: number) => request("POST", `/books/${id}/finish`),
@@ -47,14 +56,13 @@ export const api = {
   saveKindleEmail: (email: string | null) => request("PUT", "/me/kindle", { email }),
   sendToKindle: (id: number) => request<{ ok: true; to: string }>("POST", `/books/${id}/kindle`),
 
-  searchBooks: (q: string, signal?: AbortSignal) =>
-    fetch(`/api/search?q=${encodeURIComponent(q)}`, { signal, credentials: "same-origin" }).then(async (r) => {
+  searchBooks: (kind: Kind, q: string, signal?: AbortSignal) =>
+    fetch(`/api/search?kind=${kind}&q=${encodeURIComponent(q)}`, { signal, credentials: "same-origin" }).then(async (r) => {
       if (!r.ok) throw new Error("No se pudo buscar");
       return (await r.json()) as BookSuggestion[];
     }),
 
-  editBook: (id: number, b: { title: string; author: string; description: string | null; cover_url: string | null }) =>
-    request("PATCH", `/books/${id}`, b),
+  editBook: (id: number, b: BookInput) => request("PATCH", `/books/${id}`, b),
   cancelRound: (roundId: number) => request("DELETE", `/rounds/${roundId}`),
 
   admin: {
@@ -66,8 +74,8 @@ export const api = {
     reject: (email: string) => request("DELETE", `/admin/requests/${encodeURIComponent(email)}`),
   },
 
-  currentRound: () => request<Round | null>("GET", "/rounds/current"),
-  openRound: () => request("POST", "/rounds"),
+  currentRound: (kind: Kind = "book") => request<Round | null>("GET", `/rounds/current?kind=${kind}`),
+  openRound: (kind: Kind = "book") => request("POST", "/rounds", { kind }),
   vote: (roundId: number, bookId: number) => request("POST", `/rounds/${roundId}/vote`, { bookId }),
   closeRound: (roundId: number) => request<{ winnerId: number }>("POST", `/rounds/${roundId}/close`),
 };
