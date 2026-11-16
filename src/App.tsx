@@ -1,10 +1,10 @@
 import { useEffect } from "react";
 import { Link, NavLink, Route, Routes, useLocation } from "react-router";
 import { useAuth } from "./auth";
-import { AdminIcon, BookIcon, FilmIcon, HomeIcon } from "./components/Icons";
+import { AdminIcon, BookIcon, FilmIcon, HomeIcon, SOCIAL_ICONS } from "./components/Icons";
 import { InstallBanner } from "./components/InstallBanner";
 import { LoginScreen } from "./components/LoginScreen";
-import { ANNOUNCEMENT, CLUB_NAME } from "./content";
+import { ANNOUNCEMENT, CLUB_NAME, SOCIAL } from "./content";
 import { Admin } from "./pages/Admin";
 import { BookPage } from "./pages/BookPage";
 import { CurrentBook } from "./pages/CurrentBook";
@@ -95,6 +95,18 @@ export function App() {
             {CLUB_NAME}
           </span>
           <span>Leemos juntos, opinamos por separado.</span>
+          <ul className="social">
+            {SOCIAL.map(({ name, url, icon }) => {
+              const Icon = SOCIAL_ICONS[icon];
+              return (
+                <li key={name}>
+                  <a href={url} target="_blank" rel="noopener noreferrer" aria-label={name} title={name}>
+                    <Icon />
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
         </div>
       </footer>
       <InstallBanner />

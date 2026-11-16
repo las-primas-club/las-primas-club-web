@@ -420,8 +420,10 @@ select {
   .tabbar a.active svg { stroke-width: 2.3; }
   .tabbar a:active { background: var(--accent-soft); }
 
-  main.container { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
-  .site-footer { display: none; }
+  main.container { padding-bottom: 40px; }
+  /* Pie compacto, por encima de la barra inferior */
+  .site-footer { padding: 24px 0 calc(90px + env(safe-area-inset-bottom)); }
+  .footer-inner { flex-direction: column; text-align: center; gap: 10px; }
 
   /* Tipografía y espacios */
   .page, .book-detail { padding-top: 24px; }
@@ -506,3 +508,11 @@ select {
 .movie-now h3 { margin: 10px 0 4px; }
 .movie-now p { margin: 0 0 8px; }
 .page > .section-nav:first-child { margin-top: 0; }
+
+/* ---------- Redes sociales (pie) ---------- */
+.social { display: flex; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.social a {
+  display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%;
+  color: var(--ink); border: 1px solid var(--line); background: #fff; transition: background .15s, color .15s;
+}
+.social a:hover, .social a:focus-visible { background: var(--ink); border-color: var(--ink); color: #fff; }

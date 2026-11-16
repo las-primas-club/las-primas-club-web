@@ -2,6 +2,11 @@
 
 export const CLUB_NAME = "Las Primas Club";
 
+/** Redes del club en el pie de página. Para añadir una: { name, url, icon } (iconos en components/Icons.tsx). */
+export const SOCIAL = [
+  { name: "GitHub", url: "https://github.com/las-primas-club/las-primas-club-web", icon: "github" },
+] as const;
+
 export const ANNOUNCEMENT = "¡Gracias por leer (y ver pelis) con Las Primas Club! 📚🎬";
 
 export const INTRO = {
