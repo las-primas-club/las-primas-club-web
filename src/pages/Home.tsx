@@ -15,12 +15,11 @@ function NowCard({ kind }: { kind: Kind }) {
   const { data: item, loading } = useAsync(() => api.currentBook(kind), [kind]);
   const { data: round } = useAsync(() => api.currentRound(kind), [kind]);
   const open = round?.status === "open" ? round : null;
+  const meetsSoon = Boolean(item?.meet_at && !isPast(item.meet_at));
 
   return (
     <article className="now-card">
-      <p className="now-kind">
-        {k.section}
-      </p>
+      <p className="now-kind">{k.section}</p>
       {loading ? (
         <p className="muted">Cargando…</p>
       ) : item ? (
@@ -41,17 +40,35 @@ function NowCard({ kind }: { kind: Kind }) {
           <p className="muted small">Saldrá de la próxima votación.</p>
         </div>
       )}
-      {item?.meet_at && !isPast(item.meet_at) && (
-        <Link to={k.paths.now} className="now-meet">
-          Quedamos el <strong>{formatLocalDateTime(item.meet_at)}</strong>
-          {item.meet_place && ` · ${item.meet_place}`}
-        </Link>
+      {(meetsSoon || open) && (
+        <dl className="now-facts">
+          {item && meetsSoon && (
+            <div>
+              <dt>Quedada</dt>
+              <dd>
+                <Link to={k.paths.now}>{formatLocalDateTime(item.meet_at!)}</Link>
+                {item.meet_place && <span className="muted small">{item.meet_place}</span>}
+              </dd>
+            </div>
+          )}
+          {open && (
+            <div>
+              <dt>Votación</dt>
+              <dd>
+                Abierta · {open.candidates.length} candidato{open.candidates.length === 1 ? "" : "s"}
+                {open.closes_at && (
+                  <span className={`small ${isPast(open.closes_at) ? "is-past" : "muted"}`}>
+                    {isPast(open.closes_at) ? "Plazo terminado" : `Cierra el ${formatLocalDateTime(open.closes_at)}`}
+                  </span>
+                )}
+              </dd>
+            </div>
+          )}
+        </dl>
       )}
       {open ? (
-        <Link to={k.paths.vote} className="now-vote">
-          Votación abierta · {open.candidates.length} candidato{open.candidates.length === 1 ? "" : "s"}
-          {open.closes_at && !isPast(open.closes_at) && ` · hasta el ${formatLocalDateTime(open.closes_at)}`}
-          <span>Votar →</span>
+        <Link to={k.paths.vote} className="btn now-cta">
+          Ir a votar
         </Link>
       ) : (
         <Link to={k.paths.vote} className="now-link">
