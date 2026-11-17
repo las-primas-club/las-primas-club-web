@@ -205,7 +205,7 @@ export function BookDetailView({ book, onChange }: { book: BookDetail; onChange:
 
       <MeetupPanel book={book} run={run} busy={busy} />
       <ProgressPanel book={book} run={run} busy={busy} />
-      {book.kind === "movie" && book.status !== "read" && <WatchPanel bookId={book.id} />}
+      {book.kind === "movie" && <WatchPanel bookId={book.id} watched={book.status === "read"} />}
       {book.kind === "book" && <EbookPanel book={book} onChange={onChange} />}
 
       <section className="detail-section">

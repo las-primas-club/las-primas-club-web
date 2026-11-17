@@ -25,6 +25,7 @@ import {
   type User,
 } from "../shared/types";
 import { bookDescription, searchBooks } from "./bookSearch";
+import { findInJellyfin, jellyfinEnabled } from "./jellyfin";
 import { findMovieId, searchMovies, watchProviders } from "./movieSearch";
 import { notifyAll, pushEnabled, validPushEndpoint } from "./push";
 import {
@@ -759,26 +760,51 @@ app.put("/books/:id/progress", async (c) => {
   return c.json({ ok: true });
 });
 
+type MovieRow = { kind: Kind; title: string; year: string | null; tmdb_id: number | null };
+
+async function movieRow(c: Ctx, id: number) {
+  const book = await c.env.DB.prepare(`SELECT kind, title, year, tmdb_id FROM books WHERE id = ?`)
+    .bind(id)
+    .first<MovieRow>();
+  if (!book) throw new HTTPException(404, { message: "No encontrado" });
+  return book;
+}
+
+/** Id de TMDB de la película. Si se propuso a mano o antes de guardarlo, se busca por título y se recuerda. */
+async function movieTmdbId(c: Ctx, id: number, book: MovieRow) {
+  const key = c.env.TMDB_API_KEY;
+  if (book.tmdb_id || !key) return book.tmdb_id;
+  const tmdbId = await findMovieId(book.title, book.year, key);
+  if (tmdbId) await c.env.DB.prepare(`UPDATE books SET tmdb_id = ? WHERE id = ?`).bind(tmdbId, id).run();
+  return tmdbId;
+}
+
 /** Dónde ver una película en España. null si no hay clave de TMDB o no se encuentra la película. */
 app.get("/books/:id/watch", async (c) => {
   const id = idParam(c);
   const key = c.env.TMDB_API_KEY;
-  const book = await c.env.DB.prepare(`SELECT kind, title, year, tmdb_id FROM books WHERE id = ?`)
-    .bind(id)
-    .first<{ kind: Kind; title: string; year: string | null; tmdb_id: number | null }>();
-  if (!book) throw new HTTPException(404, { message: "No encontrado" });
+  const book = await movieRow(c, id);
   if (!key || book.kind !== "movie") return c.json(null);
   try {
-    let tmdbId = book.tmdb_id;
-    if (!tmdbId) {
-      // Películas propuestas a mano o antes de guardar el id: la buscamos por título y lo recordamos.
-      tmdbId = await findMovieId(book.title, book.year, key);
-      if (tmdbId) await c.env.DB.prepare(`UPDATE books SET tmdb_id = ? WHERE id = ?`).bind(tmdbId, id).run();
-    }
+    const tmdbId = await movieTmdbId(c, id, book);
     return c.json(tmdbId ? await watchProviders(tmdbId, key) : null);
   } catch (e) {
     console.warn("No se pudo consultar dónde verla", e);
     return c.json(null);
+  }
+});
+
+/** Enlace a la película en el Jellyfin del club ({ url: null } si no la tiene o no está configurado). */
+app.get("/books/:id/jellyfin", async (c) => {
+  const id = idParam(c);
+  const book = await movieRow(c, id);
+  if (!jellyfinEnabled(c.env) || book.kind !== "movie") return c.json({ url: null });
+  try {
+    const tmdbId = await movieTmdbId(c, id, book);
+    return c.json({ url: await findInJellyfin(c.env, { title: book.title, year: book.year, tmdbId }) });
+  } catch (e) {
+    console.warn("No se pudo consultar Jellyfin", e);
+    return c.json({ url: null });
   }
 });
 

@@ -69,6 +69,7 @@ export const api = {
   rsvp: (id: number, going: boolean | null) => request("PUT", `/books/${id}/rsvp`, { going }),
   setProgress: (id: number, percent: number | null) => request("PUT", `/books/${id}/progress`, { percent }),
   watch: (id: number) => request<WatchInfo | null>("GET", `/books/${id}/watch`),
+  jellyfin: (id: number) => request<{ url: string | null }>("GET", `/books/${id}/jellyfin`).then((r) => r.url),
   stats: () => request<Stats>("GET", "/stats"),
   pushSubscribe: (endpoint: string) => request("POST", "/push/subscribe", { endpoint }),
   pushUnsubscribe: (endpoint: string) => request("POST", "/push/unsubscribe", { endpoint }),

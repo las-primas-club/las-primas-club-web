@@ -124,13 +124,25 @@ npx wrangler secret put VAPID_PRIVATE_KEY
 Cada miembro los activa en *Inicio → Avisos*. En iPhone solo funcionan con la web añadida a la pantalla de inicio.
 Sin las claves, el botón no aparece y todo lo demás funciona igual.
 
-### 7. Desplegar
+### 7. Ver en Jellyfin (opcional)
+
+Si la película está en el Jellyfin del club (`JELLYFIN_URL` en `wrangler.jsonc`), su ficha muestra *Ver en Jellyfin*.
+Crea una clave en Jellyfin → **Panel de control → Claves de API** y guárdala en el Worker:
+
+```bash
+npx wrangler secret put JELLYFIN_API_KEY
+```
+
+Se empareja por el id de TMDB (o por título y año). La web solo enlaza: cada miembro entra con su propia cuenta de Jellyfin
+y el vídeo no pasa por Cloudflare.
+
+### 8. Desplegar
 
 ```bash
 npm run deploy    # build + migraciones remotas + wrangler deploy
 ```
 
-### 8. Despliegue automático con GitHub Actions
+### 9. Despliegue automático con GitHub Actions
 
 `.github/workflows/deploy.yml` hace, en cada push a `main`: build → migraciones de D1 (`--remote`) → `wrangler deploy` →
 comprobación de que `/api/config` responde. En las PR solo comprueba que compila.

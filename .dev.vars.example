@@ -13,6 +13,9 @@ TMDB_API_KEY=
 # Opcional: clave de Resend para "Enviar a mi Kindle" (en local Resend no puede descargar el epub de localhost)
 RESEND_API_KEY=
 
+# Opcional: clave de API de Jellyfin para enlazar las películas que estén en jellyfin.rdvl.net
+JELLYFIN_API_KEY=
+
 # Opcional: claves VAPID para los avisos push. Genera un par con `npm run vapid`.
 VAPID_PUBLIC_KEY=
 VAPID_PRIVATE_KEY=

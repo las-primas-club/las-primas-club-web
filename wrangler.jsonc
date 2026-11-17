@@ -32,13 +32,16 @@
 		"GOOGLE_CLIENT_ID": "48926094831-jee1eqjs1p88r4dso557gmqbr4p7e2lc.apps.googleusercontent.com",
 		// Remitente de los envíos al Kindle (dominio verificado en Resend). Cada miembro debe
 		// añadir esta dirección a su lista de emails aprobados de Amazon.
-		"KINDLE_FROM": "Las Primas Club <las-primas-club@rdvl.net>"
+		"KINDLE_FROM": "Las Primas Club <las-primas-club@rdvl.net>",
+		// Jellyfin del club: si tiene la película, su ficha enlaza a ella (necesita el secreto JELLYFIN_API_KEY).
+		"JELLYFIN_URL": "https://jellyfin.rdvl.net"
 	},
 	// Secretos (configurar con `npx wrangler secret put NOMBRE`):
 	//   ADMIN_EMAILS (opcional): admins de emergencia, siempre pueden entrar. Los miembros se gestionan en /admin.
 	//   GOOGLE_BOOKS_API_KEY (opcional): clave gratuita de Google Books para buscar libros
 	//   TMDB_API_KEY (opcional): clave gratuita de themoviedb.org para buscar películas
 	//   RESEND_API_KEY (opcional): clave de Resend (gratis, 100 emails/día) para "Enviar a mi Kindle"
+	//   JELLYFIN_API_KEY (opcional): clave de API de Jellyfin (Panel de control → Claves de API) para "Ver en Jellyfin"
 	//   VAPID_PUBLIC_KEY y VAPID_PRIVATE_KEY (opcional): claves para los avisos push; se generan con `npm run vapid`
 	"observability": {
 		"enabled": true
