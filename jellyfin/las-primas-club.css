@@ -1,0 +1,154 @@
+/*
+ * Tema de Jellyfin con el estilo de Las Primas Club.
+ * Pégalo entero en Jellyfin → Panel de control → General → Código CSS personalizado.
+ * Se apoya en ElegantFin (el tema que ya usa el servidor) y le cambia colores, fuentes y detalles.
+ */
+@import url("https://cdn.jsdelivr.net/gh/lscambo13/ElegantFin@main/Theme/ElegantFin-jellyfin-theme-build-latest-minified.css");
+@import url("https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Instrument+Sans:wght@400;500;600;700&display=swap");
+
+:root {
+  /* Paleta de la web, en versión oscura (el "negro tinta" de la web pasa a ser el fondo) */
+  --lpc-ink: #111111;
+  --lpc-ink-2: #1b1b1f;
+  --lpc-ink-3: #26262c;
+  --lpc-accent: #5a4ff5;
+  --lpc-accent-hover: #7068ff;
+  --lpc-accent-soft: rgba(90, 79, 245, 0.18);
+  --lpc-coral: #f2655f;
+  --lpc-gradient: linear-gradient(90deg, #d4157e 0%, #7b2ff7 50%, #2a3cf5 100%);
+  --lpc-stripes: linear-gradient(
+    90deg,
+    #e5484d 0 12.5%, #f5a623 12.5% 25%, #5a4ff5 25% 37.5%, #d4157e 37.5% 50%,
+    #12a150 50% 62.5%, #2a3cf5 62.5% 75%, #ff8a73 75% 87.5%, #7b2ff7 87.5% 100%
+  );
+  --lpc-serif: "DM Serif Display", Georgia, serif;
+  --lpc-sans: "Instrument Sans", system-ui, sans-serif;
+
+  /* Variables de ElegantFin */
+  --darkerGradientPoint: var(--lpc-ink);
+  --darkerGradientPointAlpha: rgba(17, 17, 17, 0.88);
+  --lighterGradientPoint: #1d1b2b;
+  --lighterGradientPointAlpha: rgba(29, 27, 43, 0.85);
+  --gradientPointAlpha: rgba(29, 27, 43, 0.3);
+  --headerColor: rgba(17, 17, 17, 0.85);
+  --drawerColor: rgba(17, 17, 17, 0.94);
+  --headerColorGradient: linear-gradient(180deg, rgba(17, 17, 17, 0.96) 30%, 55%, transparent 90%);
+  --headerColorGradientAlt: linear-gradient(180deg, #111111, 70%, transparent);
+  --borderColor: #3a3a42;
+  --darkerBorderColor: #2a2a30;
+  --selectorBackgroundColor: var(--lpc-ink-3);
+  --selectorBackgroundColorAlpha: rgba(38, 38, 44, 0.6);
+  --textColor: #ececec;
+  --dimTextColor: #a3a3a8;
+  --tableBodyColor: var(--lpc-ink-2);
+  --accentColor: var(--lpc-accent);
+  --accentHoverColor: var(--lpc-accent-hover);
+  --semiTransparentAccentColor: var(--lpc-accent-soft);
+  --activeBackgroundColor: var(--lpc-accent-soft);
+  --btnSubmitColor: var(--lpc-accent);
+  --btnSubmitBorderColor: var(--lpc-accent-hover);
+  --checkboxCheckedBgColor: var(--lpc-accent);
+  --highlightOutlineColor: var(--lpc-accent);
+  --cardResumeProgressColor: var(--lpc-accent);
+  --osdSeekBarPlayedColor: var(--lpc-accent);
+  --btnMiniPlayColor: var(--lpc-accent);
+  --btnMiniPlayBorderColor: var(--lpc-accent-hover);
+
+  /* La web es más cuadrada: esquinas pequeñas */
+  --largerRadius: 10px;
+  --largeRadius: 8px;
+  --smallRadius: 6px;
+  --smallerRadius: 4px;
+
+  --loginPageText: "Las Primas Club";
+  --elegantFinFooterText: "Las Primas Club";
+
+  font-family: var(--lpc-sans);
+}
+
+/* ---------- Tipografía: sans para todo, serif editorial para los títulos ---------- */
+html, body, .emby-button, .emby-input, .emby-select, .emby-checkbox-label, .cardText, .listItemBodyText {
+  font-family: var(--lpc-sans);
+}
+h1, .pageTitle, .itemName.infoText, .detailPagePrimaryContainer h1, .sectionTitle, .sectionTitle-cards,
+.headerTitle, .formDialogHeaderTitle, .loginPage h1, .padded-left .sectionTitle {
+  font-family: var(--lpc-serif) !important;
+  font-weight: 400 !important;
+  letter-spacing: -0.01em;
+}
+.sectionTitle, .sectionTitle-cards { font-size: 1.6em; }
+.cardText-first { font-weight: 600; }
+
+/* ---------- Línea degradada bajo la cabecera, como el anuncio de la web ---------- */
+/* (Jellyfin usa la cabecera clásica .skinHeader o la nueva de MUI, según la página y la versión) */
+.skinHeader:not(.osdHeader),
+header.MuiAppBar-root {
+  border-style: solid !important;
+  border-width: 0 0 3px 0 !important;
+  border-image: var(--lpc-gradient) 1 !important;
+}
+
+/* Pestañas activas y menú lateral en violeta */
+.emby-tab-button-active, .emby-tab-button.emby-button-foreground { color: #fff !important; }
+.emby-tab-button-active { background: var(--lpc-accent) !important; }
+.navMenuOption-selected { background: var(--lpc-accent-soft) !important; color: #fff !important; box-shadow: inset 3px 0 0 var(--lpc-accent); }
+
+/* ---------- Botones: violeta sólido, esquinas de 4px ---------- */
+.button-submit, .raised.button-submit, .btnPlay.detailButton, .detailButton.btnResume {
+  background: var(--lpc-accent) !important;
+  border-color: var(--lpc-accent) !important;
+  color: #fff !important;
+  border-radius: 4px !important;
+}
+.button-submit:hover, .btnPlay.detailButton:hover, .detailButton.btnResume:hover {
+  background: var(--lpc-accent-hover) !important;
+  border-color: var(--lpc-accent-hover) !important;
+}
+.emby-button.raised, .button-flat { border-radius: 4px; }
+
+/* ---------- Tarjetas ---------- */
+.cardBox:hover .cardScalable, .card:focus .cardScalable { outline: 2px solid var(--lpc-accent); outline-offset: 2px; }
+.itemProgressBarForeground, .playbackProgress { background: var(--lpc-accent) !important; }
+.countIndicator, .playedIndicator { background: var(--lpc-accent) !important; }
+
+/* Etiquetas (géneros, clasificación…) como los "pills" de la web */
+.mediaInfoOfficialRating, .itemGenres a, .mediaInfoItem.mediaInfoText {
+  border-radius: 999px !important;
+}
+.mediaInfoOfficialRating { border: 1.5px solid #e5484d !important; color: #fff; }
+
+/* Controles del reproductor */
+.mdl-slider::-webkit-slider-thumb { background: #fff; }
+.sliderBubble { background: var(--lpc-accent); }
+
+/* ---------- Login ---------- */
+#loginPage {
+  background: radial-gradient(1100px 520px at 50% -8%, #2c2163 0%, var(--lpc-ink) 62%), var(--loginPageBgUrl) !important;
+}
+#loginPage .padded-left.padded-right.padded-bottom-page {
+  background: rgba(27, 27, 31, 0.82) !important;
+  border: 1px solid #2c2c33;
+  border-radius: 8px !important;
+}
+/* Franja de colores arriba de la tarjeta, como la de la web */
+#loginPage .padded-left.padded-right.padded-bottom-page::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  border-radius: 8px 8px 0 0;
+  background: var(--lpc-stripes);
+}
+.manualLoginForm::before, .visualLoginForm::before {
+  font-family: var(--lpc-serif);
+  font-weight: 400 !important;
+  font-size: 2.6em !important;
+  letter-spacing: -0.01em;
+}
+.loginDisclaimer { color: var(--dimTextColor); }
+
+/* Selección de texto y foco en violeta */
+::selection { background: var(--lpc-accent); color: #fff; }
+.emby-input:focus, .emby-select-withcolor:focus, .emby-textarea:focus { border-color: var(--lpc-accent) !important; }
