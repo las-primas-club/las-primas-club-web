@@ -1,0 +1,265 @@
+/*
+ * Tema de Jellyfin con el estilo de Las Primas Club — versión CLARA, como la web
+ * (blanco, gris suave, texto negro, violeta de acento y serif editorial en los títulos).
+ * Pégalo entero en Jellyfin → Panel de control → General → Código CSS personalizado.
+ * Base: el tema claro oficial de Jellyfin + ElegantFin (el tema que ya usa el servidor), con colores y fuentes cambiados.
+ * Hay una versión oscura en las-primas-club-oscuro.css.
+ */
+@import url("/web/themes/light/theme.css");
+@import url("https://cdn.jsdelivr.net/gh/lscambo13/ElegantFin@main/Theme/ElegantFin-jellyfin-theme-build-latest-minified.css");
+@import url("https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Instrument+Sans:wght@400;500;600;700&display=swap");
+
+/* html:root para ganar a las variables que Jellyfin pone en :root según el tema de cada usuario */
+html:root {
+  color-scheme: light;
+
+  /* Paleta de la web */
+  --lpc-bg: #ffffff;
+  --lpc-panel: #f5f5f7;
+  --lpc-panel-2: #ececf0;
+  --lpc-ink: #111111;
+  --lpc-muted: #6b6b6b;
+  --lpc-line: #dcdcdc;
+  --lpc-accent: #5a4ff5;
+  --lpc-accent-hover: #4537e8;
+  --lpc-accent-soft: #eeecff;
+  --lpc-pill-border: #e5484d;
+  --lpc-pill-bg: #fff4f3;
+  --lpc-gradient: linear-gradient(90deg, #d4157e 0%, #7b2ff7 50%, #2a3cf5 100%);
+  --lpc-stripes: linear-gradient(
+    90deg,
+    #e5484d 0 12.5%, #f5a623 12.5% 25%, #5a4ff5 25% 37.5%, #d4157e 37.5% 50%,
+    #12a150 50% 62.5%, #2a3cf5 62.5% 75%, #ff8a73 75% 87.5%, #7b2ff7 87.5% 100%
+  );
+  --lpc-serif: "DM Serif Display", Georgia, serif;
+  --lpc-sans: "Instrument Sans", system-ui, sans-serif;
+
+  /* Paleta de Jellyfin (cabecera nueva, menús, diálogos y panel de control) */
+  --jf-palette-background-default: var(--lpc-bg);
+  --jf-palette-background-paper: var(--lpc-bg);
+  --jf-palette-background-defaultImage: none;
+  --jf-palette-AppBar-defaultBg: var(--lpc-bg);
+  --jf-palette-AppBar-transparentBg: rgba(255, 255, 255, 0.9);
+  --jf-palette-AppBar-gradient: none;
+  --jf-palette-text-primary: var(--lpc-ink);
+  --jf-palette-text-secondary: #333333;
+  --jf-palette-text-disabled: #9a9a9a;
+  --jf-palette-divider: rgba(0, 0, 0, 0.1);
+  --jf-palette-primary-main: var(--lpc-accent);
+  --jf-palette-primary-dark: var(--lpc-accent-hover);
+  --jf-palette-primary-light: #8a82ff;
+  --jf-palette-primary-contrastText: #ffffff;
+  --jf-palette-secondary-main: var(--lpc-accent);
+  --jf-palette-secondary-contrastText: #ffffff;
+  --jf-palette-action-active: var(--lpc-ink);
+  --jf-palette-action-hover: rgba(0, 0, 0, 0.05);
+  --jf-palette-action-selected: var(--lpc-accent-soft);
+  --jf-palette-action-focus: rgba(90, 79, 245, 0.2);
+  --jf-palette-Button-inheritContainedBg: var(--lpc-panel);
+  --jf-palette-Button-inheritContainedHoverBg: var(--lpc-panel-2);
+  --jf-palette-FilledInput-bg: var(--lpc-panel);
+  --jf-palette-FilledInput-borderColor: var(--lpc-line);
+  --jf-palette-SnackbarContent-bg: var(--lpc-ink);
+  --jf-palette-SnackbarContent-color: #ffffff;
+
+  /* Variables de ElegantFin, en claro */
+  --darkerGradientPoint: var(--lpc-bg);
+  --darkerGradientPointAlpha: rgba(255, 255, 255, 0.9);
+  --lighterGradientPoint: var(--lpc-panel);
+  --lighterGradientPointAlpha: rgba(245, 245, 247, 0.9);
+  --gradientPointAlpha: rgba(245, 245, 247, 0.4);
+  --headerColor: rgba(255, 255, 255, 0.92);
+  --drawerColor: rgba(255, 255, 255, 0.97);
+  --headerColorGradient: linear-gradient(180deg, rgba(255, 255, 255, 0.97) 30%, rgba(255, 255, 255, 0.9) 55%, transparent 95%);
+  --headerColorGradientAlt: linear-gradient(180deg, #ffffff, 70%, transparent);
+  --borderColor: var(--lpc-line);
+  --darkerBorderColor: #e6e6ea;
+  --lighterBorderColor: rgba(0, 0, 0, 0.12);
+  --selectorBackgroundColor: var(--lpc-panel);
+  --selectorBackgroundColorAlpha: rgba(245, 245, 247, 0.85);
+  --textColor: var(--lpc-ink);
+  --dimTextColor: var(--lpc-muted);
+  --fullContrastColor: #000000;
+  --zeroContrastColor: #ffffff;
+  --svgIconFilter: invert(1);
+  --accentColor: var(--lpc-accent);
+  --accentHoverColor: var(--lpc-accent-hover);
+  --semiTransparentAccentColor: var(--lpc-accent-soft);
+  --btnPlayColor: var(--lpc-ink);
+  --btnPlayBorderColor: var(--lpc-line);
+  --btnSubmitColor: var(--lpc-accent);
+  --btnSubmitBorderColor: var(--lpc-accent);
+  --btnMiniPlayColor: var(--lpc-accent);
+  --btnMiniPlayBorderColor: var(--lpc-accent);
+  --checkboxCheckedBgColor: var(--lpc-accent);
+  --highlightOutlineColor: var(--lpc-accent);
+  --hoverBackgroundColor: var(--lpc-ink);
+  --hoverTabBackgroundColor: var(--lpc-ink);
+  --hoverTextColor: #ffffff;
+  --activeBackgroundColor: var(--lpc-accent-soft);
+  --activeTextColor: var(--lpc-accent);
+  --cardHoverBorderColor: var(--lpc-accent);
+  --cardResumeProgressColor: var(--lpc-accent);
+  --multiSelectOverlayColor: rgba(255, 255, 255, 0.85);
+  --dividerColor: rgba(0, 0, 0, 0.08);
+  --textareaBackgroundColor: var(--lpc-panel);
+  --tableBodyColor: var(--lpc-bg);
+  --cardShadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  --shadow: none;
+  --iconShadow: none;
+
+  /* Los logos "clear art" suelen ser blancos: en fondo claro se pone el título en texto */
+  --clearLogoVisibility: none;
+  --itemTitleVisibility: block;
+  --artistClearLogoVisibility: none;
+  --artistTitleVisibility: block;
+
+  /* La web es más cuadrada */
+  --largerRadius: 10px;
+  --largeRadius: 8px;
+  --smallRadius: 6px;
+  --smallerRadius: 4px;
+
+  --loginPageText: "Las Primas Club";
+  --elegantFinFooterText: "Las Primas Club";
+
+  font-family: var(--lpc-sans);
+}
+
+/* ---------- Fondo y texto ---------- */
+html, body, .backgroundContainer, .mainAnimatedPages, .page, .dialog, .actionSheet, .mainDrawer, .MuiDrawer-paper, .MuiPaper-root {
+  background-color: var(--lpc-bg);
+  color: var(--lpc-ink);
+}
+.backgroundContainer.withBackdrop { background-color: rgba(255, 255, 255, 0.86) !important; }
+.secondaryText, .listItemBodyText.secondary, .cardText-secondary, .fieldDescription, .mediaInfoItem, .itemMiscInfo { color: var(--lpc-muted); }
+
+/* ---------- Tipografía: sans para todo, serif editorial para los títulos ---------- */
+html, body, .emby-button, .emby-input, .emby-select, .emby-checkbox-label, .cardText, .listItemBodyText, .MuiTypography-root, .MuiButton-root {
+  font-family: var(--lpc-sans);
+}
+h1, .pageTitle, .itemName.infoText, .detailPagePrimaryContainer h1, .sectionTitle, .sectionTitle-cards,
+.headerTitle, .formDialogHeaderTitle, .padded-left .sectionTitle {
+  font-family: var(--lpc-serif) !important;
+  font-weight: 400 !important;
+  letter-spacing: -0.01em;
+  color: var(--lpc-ink);
+}
+.sectionTitle, .sectionTitle-cards { font-size: 1.6em; }
+.cardText-first { font-weight: 600; color: var(--lpc-ink); }
+
+/* ---------- Cabecera blanca con la línea degradada de la web ---------- */
+.skinHeader:not(.osdHeader),
+header.MuiAppBar-root {
+  background-color: rgba(255, 255, 255, 0.94) !important;
+  color: var(--lpc-ink) !important;
+  border-style: solid !important;
+  border-width: 0 0 3px 0 !important;
+  border-image: var(--lpc-gradient) 1 !important;
+}
+.skinHeader:not(.osdHeader) .headerButton, .skinHeader:not(.osdHeader) .material-icons,
+header.MuiAppBar-root .MuiIconButton-root, header.MuiAppBar-root .MuiSvgIcon-root { color: var(--lpc-ink) !important; }
+.pageTitleWithDefaultLogo { filter: invert(1) hue-rotate(180deg); }
+
+/* Pestañas: como los botones-pastilla de la web */
+.emby-tab-button { color: var(--lpc-muted) !important; }
+.emby-tab-button-active, .emby-tab-button.emby-button-foreground { color: #fff !important; background: var(--lpc-ink) !important; }
+.emby-tab-button:hover:not(.emby-tab-button-active) { color: var(--lpc-ink) !important; background: var(--lpc-panel) !important; }
+
+/* Menú lateral */
+.navMenuOption { color: var(--lpc-ink); }
+.navMenuOption-selected { background: var(--lpc-accent-soft) !important; color: var(--lpc-accent) !important; box-shadow: inset 3px 0 0 var(--lpc-accent); }
+
+/* ---------- Botones: violeta sólido o borde negro, esquinas de 4px ---------- */
+.button-submit, .raised.button-submit, .btnPlay.detailButton, .detailButton.btnResume, .MuiButton-containedPrimary {
+  background: var(--lpc-accent) !important;
+  border-color: var(--lpc-accent) !important;
+  color: #fff !important;
+  border-radius: 4px !important;
+}
+.button-submit:hover, .btnPlay.detailButton:hover, .detailButton.btnResume:hover, .MuiButton-containedPrimary:hover {
+  background: var(--lpc-accent-hover) !important;
+  border-color: var(--lpc-accent-hover) !important;
+}
+.emby-button.raised:not(.button-submit), .button-flat, .detailButton:not(.btnPlay):not(.btnResume) {
+  border-radius: 4px;
+  color: var(--lpc-ink);
+}
+.emby-button.raised:not(.button-submit) { background: var(--lpc-bg); border: 1px solid var(--lpc-ink); }
+.paper-icon-button-light { color: var(--lpc-ink); }
+
+/* ---------- Formularios ---------- */
+.emby-input, .emby-select, .emby-textarea, .emby-select-withcolor {
+  background: var(--lpc-bg) !important;
+  color: var(--lpc-ink) !important;
+  border: 1px solid var(--lpc-line) !important;
+  border-radius: 4px !important;
+}
+.emby-input:focus, .emby-select-withcolor:focus, .emby-textarea:focus { border-color: var(--lpc-accent) !important; }
+.inputLabel, .selectLabel, .textareaLabel { color: var(--lpc-ink); font-weight: 600; }
+.checkboxOutline:not(.multiSelectCheckboxOutline) { border-color: #9a9a9a !important; }
+
+/* ---------- Tarjetas ---------- */
+.cardBox:hover .cardScalable, .card:focus .cardScalable { outline: 2px solid var(--lpc-accent); outline-offset: 2px; }
+.itemProgressBarForeground, .playbackProgress { background: var(--lpc-accent) !important; }
+.countIndicator, .playedIndicator { background: var(--lpc-accent) !important; color: #fff !important; border: none !important; }
+.cardImageContainer.defaultCardBackground { background-color: var(--lpc-panel-2) !important; color: var(--lpc-muted); }
+
+/* Etiquetas (géneros, clasificación…) como los "pills" de la web */
+.mediaInfoOfficialRating {
+  border: 1.5px solid var(--lpc-pill-border) !important;
+  background: var(--lpc-pill-bg) !important;
+  color: var(--lpc-ink) !important;
+  border-radius: 999px !important;
+}
+.itemGenres a, .itemDetailsGroup a { color: var(--lpc-ink); }
+
+/* ---------- Ficha de la película: el fondo se funde con el blanco ---------- */
+.detailPagePrimaryContainer, .detailPageSecondaryContainer, .itemOverview, .overview-text { color: var(--lpc-ink); }
+.detailRibbon { background: transparent !important; }
+
+/* ---------- Reproductor: siempre oscuro, encima del vídeo ---------- */
+.videoOsdBottom, .skinHeader.osdHeader, .upNextContainer, .osdControls, .videoPlayerContainer, .youtubePlayerContainer {
+  --textColor: #ececec;
+  --dimTextColor: #b5b5b5;
+  --fullContrastColor: #fff;
+  --svgIconFilter: none;
+  color: #ececec;
+}
+.videoOsdBottom .material-icons, .skinHeader.osdHeader .material-icons, .videoOsdBottom .paper-icon-button-light { color: #fff !important; }
+.osdHeader { border: none !important; }
+.sliderBubble { background: var(--lpc-accent); }
+
+/* ---------- Login ---------- */
+#loginPage {
+  background: radial-gradient(1100px 520px at 50% -8%, var(--lpc-accent-soft) 0%, var(--lpc-bg) 62%), var(--loginPageBgUrl) !important;
+}
+#loginPage .padded-left.padded-right.padded-bottom-page {
+  background: var(--lpc-panel) !important;
+  backdrop-filter: none !important;
+  border: none;
+  border-radius: 8px !important;
+}
+/* Franja de colores arriba de la tarjeta, como la de la web */
+#loginPage .padded-left.padded-right.padded-bottom-page::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  border-radius: 8px 8px 0 0;
+  background: var(--lpc-stripes);
+}
+.manualLoginForm::before, .visualLoginForm::before {
+  font-family: var(--lpc-serif);
+  font-weight: 400 !important;
+  font-size: 2.6em !important;
+  letter-spacing: -0.01em;
+  color: var(--lpc-ink) !important;
+}
+#loginPage .emby-button.raised:not(.button-submit) { background: var(--lpc-bg); }
+.loginDisclaimer { color: var(--lpc-muted); }
+
+/* Selección de texto en violeta */
+::selection { background: var(--lpc-accent); color: #fff; }
