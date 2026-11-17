@@ -99,13 +99,13 @@ Los epub se guardan en **Workers KV** (namespace `EPUBS`, ya en `wrangler.jsonc`
 Descargarlos funciona sin más. Para el botón **Enviar a mi Kindle** hace falta [Resend](https://resend.com)
 (plan gratuito: 100 emails/día; el Email Sending de Cloudflare exige el plan de pago para enviar a direcciones de fuera):
 
-1. Crea la cuenta en Resend → **Domains → Add domain** → `las-primas-club.rdvl.net`. Usa *Auto configure* con Cloudflare
+1. Crea la cuenta en Resend → **Domains → Add domain** → `rdvl.net` (o el dominio desde el que quieras enviar; tiene que coincidir con el de `KINDLE_FROM`). Usa *Auto configure* con Cloudflare
    o copia los registros DNS (DKIM, SPF y MX en subdominios; no tocan la web) en la zona `rdvl.net`. Espera a que salga *Verified*.
 2. **API Keys → Create** (permiso *Sending access*) y guárdala en el Worker:
    ```bash
    npx wrangler secret put RESEND_API_KEY
    ```
-3. El remitente es `KINDLE_FROM` en `wrangler.jsonc` (`libros@las-primas-club.rdvl.net`). Cada miembro debe añadirlo a su
+3. El remitente es `KINDLE_FROM` en `wrangler.jsonc` (`las-primas-club@rdvl.net`). Cada miembro debe añadirlo a su
    *Lista de direcciones de correo electrónico aprobadas* de Amazon; la web le explica cómo.
 
 Resend descarga el epub de un enlace temporal (`/api/kindle-file/<token>`, válido 60 min) en vez de recibirlo en base64,
