@@ -127,11 +127,46 @@ html:root {
 }
 
 /* ---------- Fondo y texto ---------- */
-html, body, .backgroundContainer, .mainAnimatedPages, .page, .dialog, .actionSheet, .mainDrawer, .MuiDrawer-paper, .MuiPaper-root {
+/* Mientras se reproduce, Jellyfin pone html.transparentDocument para que se vea el vídeo detrás de la página:
+   el fondo blanco solo se aplica fuera del reproductor. */
+/* Solo el fondo del todo: las imágenes de fondo de las pelis (backdrops) van por encima y no hay que taparlas. */
+html:not(.transparentDocument), html:not(.transparentDocument) body {
+  background-color: var(--lpc-bg);
+}
+html, body { color: var(--lpc-ink); }
+.dialog, .actionSheet, .mainDrawer, .MuiDrawer-paper, .MuiMenu-paper, .MuiPopover-paper, .MuiDialog-paper {
   background-color: var(--lpc-bg);
   color: var(--lpc-ink);
 }
-.backgroundContainer.withBackdrop { background-color: rgba(255, 255, 255, 0.86) !important; }
+/* Imagen de fondo de la peli: sin velo encima y a opacidad completa; solo se funde a blanco en la parte de abajo,
+   donde van el título y los botones. */
+html:not(.transparentDocument) .backgroundContainer.withBackdrop {
+  background-color: transparent !important;
+  background-image: none !important;
+  opacity: 1 !important;
+}
+html:root { --itemBackdropMask: linear-gradient(180deg, #000 0%, #000 55%, rgba(0, 0, 0, 0.6) 75%, transparent 100%); }
+
+/* Reproduciendo: todo transparente y oscuro encima del vídeo */
+html.transparentDocument, html.transparentDocument body, html.transparentDocument .page,
+html.transparentDocument .mainAnimatedPages, html.transparentDocument .backgroundContainer {
+  background: transparent !important;
+}
+html.transparentDocument header.MuiAppBar-root {
+  background: transparent !important;
+  border: none !important;
+}
+/* Menús del reproductor (subtítulos, audio, calidad…) en oscuro */
+html.transparentDocument .actionSheet, html.transparentDocument .dialog, html.transparentDocument .MuiMenu-paper {
+  --textColor: #ececec;
+  --dimTextColor: #b5b5b5;
+  --selectorBackgroundColor: #26262c;
+  background-color: rgba(20, 20, 24, 0.96) !important;
+  color: #ececec !important;
+}
+html.transparentDocument .actionSheet .material-icons, html.transparentDocument .actionSheet .listItemBodyText { color: #ececec !important; }
+html.transparentDocument header.MuiAppBar-root .MuiIconButton-root,
+html.transparentDocument header.MuiAppBar-root .MuiSvgIcon-root { color: #fff !important; }
 .secondaryText, .listItemBodyText.secondary, .cardText-secondary, .fieldDescription, .mediaInfoItem, .itemMiscInfo { color: var(--lpc-muted); }
 
 /* ---------- Tipografía: sans para todo, serif editorial para los títulos ---------- */
