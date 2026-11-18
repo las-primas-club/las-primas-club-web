@@ -8,6 +8,7 @@ import {
   type AccessRequest,
   type AppConfig,
   type Ballot,
+  type JellyfinMe,
   type Book,
   type BookDetail,
   type Comment,
@@ -25,7 +26,17 @@ import {
   type User,
 } from "../shared/types";
 import { bookDescription, searchBooks } from "./bookSearch";
-import { findInJellyfin, jellyfinEnabled } from "./jellyfin";
+import {
+  applyClubPolicy,
+  authorizeQuickConnect,
+  createClubUser,
+  disableUser,
+  findInJellyfin,
+  JellyfinError,
+  jellyfinEnabled,
+  listUsers,
+  quickConnectEnabled,
+} from "./jellyfin";
 import { findMovieId, searchMovies, watchProviders } from "./movieSearch";
 import { notifyAll, pushEnabled, validPushEndpoint } from "./push";
 import {
@@ -808,6 +819,129 @@ app.get("/books/:id/jellyfin", async (c) => {
   }
 });
 
+// ---------- Cuenta de Jellyfin de cada miembro ----------
+
+type JellyfinLink = { jellyfin_user_id: string | null; jellyfin_name: string | null; jellyfin_managed: number };
+
+async function jellyfinLink(c: Ctx, userId: number) {
+  return (await c.env.DB.prepare(`SELECT jellyfin_user_id, jellyfin_name, jellyfin_managed FROM users WHERE id = ?`)
+    .bind(userId)
+    .first<JellyfinLink>())!;
+}
+
+function requireJellyfin(c: Ctx) {
+  if (!jellyfinEnabled(c.env)) throw new HTTPException(404, { message: "Jellyfin no está configurado" });
+}
+
+function jellyfinFailure(e: unknown, what: string): never {
+  console.error(`Jellyfin: ${what}`, e instanceof JellyfinError ? `${e.message} ${e.detail}` : e);
+  throw new HTTPException(502, { message: `No se pudo ${what} en Jellyfin. Inténtalo más tarde.` });
+}
+
+/** Mi cuenta de Jellyfin: si está enlazada y si Quick Connect está activo en el servidor. */
+app.get("/jellyfin/me", async (c) => {
+  const user = requireUser(c);
+  if (!jellyfinEnabled(c.env)) return c.json({ enabled: false, url: null, quickConnect: false, account: null } satisfies JellyfinMe);
+  const [link, quickConnect] = await Promise.all([jellyfinLink(c, user.id), quickConnectEnabled(c.env).catch(() => false)]);
+  return c.json({
+    enabled: true,
+    url: c.env.JELLYFIN_URL,
+    quickConnect,
+    account: link.jellyfin_user_id ? { name: link.jellyfin_name ?? "" } : null,
+  } satisfies JellyfinMe);
+});
+
+/** Activar mi cuenta: crea mi usuario de Jellyfin (solo películas). Si ya la tengo, le vuelve a poner los permisos. */
+app.post("/jellyfin/me", async (c) => {
+  const user = requireUser(c);
+  requireJellyfin(c);
+  const link = await jellyfinLink(c, user.id);
+  try {
+    if (link.jellyfin_user_id) {
+      if (link.jellyfin_managed) await applyClubPolicy(c.env, link.jellyfin_user_id);
+      return c.json({ name: link.jellyfin_name });
+    }
+    const created = await createClubUser(c.env, { name: user.name, email: user.email });
+    await c.env.DB.prepare(`UPDATE users SET jellyfin_user_id = ?, jellyfin_name = ?, jellyfin_managed = 1 WHERE id = ?`)
+      .bind(created.id, created.name, user.id)
+      .run();
+    return c.json({ name: created.name }, 201);
+  } catch (e) {
+    if (e instanceof HTTPException) throw e;
+    jellyfinFailure(e, "crear tu cuenta");
+  }
+});
+
+/** Entrar en Jellyfin sin contraseña: apruebo el código de Quick Connect que me muestra su pantalla de inicio. */
+app.post("/jellyfin/quick-connect", async (c) => {
+  const user = requireUser(c);
+  requireJellyfin(c);
+  const { code } = await jsonBody<{ code?: string }>(c);
+  const clean = String(code ?? "").replace(/\s+/g, "");
+  if (!/^\d{6}$/.test(clean)) bad("El código son 6 números");
+  const link = await jellyfinLink(c, user.id);
+  if (!link.jellyfin_user_id) bad("Primero activa tu cuenta de Jellyfin");
+  try {
+    // Por si la cuenta se desactivó (dejó el club y volvió) o hay bibliotecas de películas nuevas.
+    if (link.jellyfin_managed) await applyClubPolicy(c.env, link.jellyfin_user_id);
+    await authorizeQuickConnect(c.env, clean, link.jellyfin_user_id);
+  } catch (e) {
+    if (e instanceof JellyfinError && (e.status === 404 || e.status === 400)) {
+      bad("Ese código no existe o ha caducado. Pide uno nuevo en Jellyfin.");
+    }
+    if (e instanceof JellyfinError && e.status === 403) bad("Quick Connect está desactivado en Jellyfin");
+    jellyfinFailure(e, "aprobar el código");
+  }
+  return c.json({ ok: true });
+});
+
+/** Admin: usuarios que hay en Jellyfin, para enlazar a un miembro con una cuenta que ya tenía. */
+app.get("/admin/jellyfin/users", async (c) => {
+  requireAdmin(c);
+  requireJellyfin(c);
+  try {
+    const users = await listUsers(c.env);
+    return c.json(
+      users
+        .map((u) => ({ id: u.Id, name: u.Name, admin: Boolean(u.Policy?.IsAdministrator), disabled: Boolean(u.Policy?.IsDisabled) }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    );
+  } catch (e) {
+    jellyfinFailure(e, "leer los usuarios");
+  }
+});
+
+/** Admin: enlazar (o desenlazar con null) a un miembro con un usuario de Jellyfin que ya existía. No se tocan sus permisos. */
+app.put("/admin/members/:email/jellyfin", async (c) => {
+  requireAdmin(c);
+  requireJellyfin(c);
+  const email = emailParam(c);
+  const { jellyfinUserId } = await jsonBody<{ jellyfinUserId?: string | null }>(c);
+  const member = await c.env.DB.prepare(`SELECT id FROM users WHERE email = ?`).bind(email).first<{ id: number }>();
+  if (!member) bad("Esta persona aún no ha entrado nunca en la web");
+  if (!jellyfinUserId) {
+    await c.env.DB.prepare(`UPDATE users SET jellyfin_user_id = NULL, jellyfin_name = NULL, jellyfin_managed = 0 WHERE id = ?`)
+      .bind(member.id)
+      .run();
+    return c.json({ ok: true });
+  }
+  let target: { Id: string; Name: string } | undefined;
+  try {
+    target = (await listUsers(c.env)).find((u) => u.Id === jellyfinUserId);
+  } catch (e) {
+    jellyfinFailure(e, "leer los usuarios");
+  }
+  if (!target) bad("Ese usuario no existe en Jellyfin");
+  const other = await c.env.DB.prepare(`SELECT email FROM users WHERE jellyfin_user_id = ? AND id != ?`)
+    .bind(target.Id, member.id)
+    .first<{ email: string }>();
+  if (other) bad(`Ese usuario de Jellyfin ya está enlazado con ${other.email}`);
+  await c.env.DB.prepare(`UPDATE users SET jellyfin_user_id = ?, jellyfin_name = ?, jellyfin_managed = 0 WHERE id = ?`)
+    .bind(target.Id, target.Name, member.id)
+    .run();
+  return c.json({ ok: true });
+});
+
 // ---------- Epub y envío al Kindle ----------
 
 const KINDLE_LINK_MINUTES = 60;
@@ -1241,14 +1375,19 @@ app.get("/admin/members", async (c) => {
   requireAdmin(c);
   const [members, requests] = await c.env.DB.batch([
     c.env.DB.prepare(
-      `SELECT m.email, m.role, m.created_at, u.id AS user_id, u.name, u.picture, u.last_login_at
+      `SELECT m.email, m.role, m.created_at, u.id AS user_id, u.name, u.picture, u.last_login_at,
+              u.jellyfin_user_id, u.jellyfin_name, COALESCE(u.jellyfin_managed, 0) AS jellyfin_managed
        FROM members m LEFT JOIN users u ON u.email = m.email
        ORDER BY m.role = 'admin' DESC, COALESCE(u.name, m.email) COLLATE NOCASE`,
     ),
     c.env.DB.prepare(`SELECT email, name, picture, requested_at FROM access_requests ORDER BY requested_at DESC`),
   ]);
   return c.json({
-    members: (members.results as unknown as Member[]).map((m) => ({ ...m, protected: isProtectedAdmin(c.env, m.email) })),
+    members: (members.results as unknown as Member[]).map((m) => ({
+      ...m,
+      jellyfin_managed: Boolean(m.jellyfin_managed),
+      protected: isProtectedAdmin(c.env, m.email),
+    })),
     requests: requests.results as unknown as AccessRequest[],
   });
 });
@@ -1291,6 +1430,13 @@ app.delete("/admin/members/:email", async (c) => {
     c.env.DB.prepare(`DELETE FROM members WHERE email = ?`).bind(email),
     c.env.DB.prepare(`DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE email = ?)`).bind(email),
   ]);
+  // Si la web le creó la cuenta de Jellyfin, se desactiva (si vuelve al club, se reactiva al entrar).
+  const jf = await c.env.DB.prepare(`SELECT jellyfin_user_id FROM users WHERE email = ? AND jellyfin_managed = 1`)
+    .bind(email)
+    .first<{ jellyfin_user_id: string | null }>();
+  if (jf?.jellyfin_user_id && jellyfinEnabled(c.env)) {
+    c.executionCtx.waitUntil(disableUser(c.env, jf.jellyfin_user_id).catch((e) => console.error("Jellyfin: desactivar", e)));
+  }
   return c.json({ ok: true });
 });
 

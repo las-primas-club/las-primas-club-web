@@ -136,6 +136,15 @@ npx wrangler secret put JELLYFIN_API_KEY
 Se empareja por el id de TMDB (o por título y año). La web solo enlaza: cada miembro entra con su propia cuenta de Jellyfin
 y el vídeo no pasa por Cloudflare.
 
+**Cuentas del club en Jellyfin.** Con la misma clave, la web gestiona los usuarios de Jellyfin:
+
+- Cada miembro pulsa *Activar mi cuenta de Jellyfin* (en la ficha de una película o en `/cine/jellyfin`). La web le crea
+  un usuario que **solo ve las bibliotecas de películas**, con una contraseña aleatoria que nadie conoce.
+- Para entrar, en Jellyfin (navegador, móvil o tele) se pulsa **Quick Connect** y el código de 6 cifras se escribe en la web.
+  Hace falta tener Quick Connect activado en Jellyfin (*Panel de control → General*).
+- Si alguien ya tenía usuario en Jellyfin, un admin lo enlaza desde *Admin → Miembros* (sus permisos no se tocan).
+- Al quitar a alguien del club se desactiva su usuario de Jellyfin si lo creó la web; si vuelve, se reactiva al entrar.
+
 ### 8. Desplegar
 
 ```bash

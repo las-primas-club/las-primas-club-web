@@ -12,6 +12,7 @@ import { Home } from "./pages/Home";
 import { ReadBooks } from "./pages/ReadBooks";
 import { Vote } from "./pages/Vote";
 import { RoundHistory } from "./pages/RoundHistory";
+import { JellyfinPage } from "./pages/JellyfinPage";
 import { StatsPage } from "./pages/Stats";
 
 // Cada sección agrupa varias rutas (en curso, votación, historial y fichas).
@@ -89,6 +90,7 @@ export function App() {
           <Route path="/cine/votacion/rondas" element={<RoundHistory kind="movie" />} />
           <Route path="/cine/vistas" element={<ReadBooks kind="movie" />} />
           <Route path="/peliculas/:id" element={<BookPage />} />
+          <Route path="/cine/jellyfin" element={<JellyfinPage />} />
           <Route path="/datos" element={<StatsPage />} />
           <Route path="/admin" element={<Admin />} />
           <Route

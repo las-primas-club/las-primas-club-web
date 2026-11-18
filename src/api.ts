@@ -4,6 +4,8 @@ import type {
   Book,
   BookDetail,
   BookSuggestion,
+  JellyfinMe,
+  JellyfinUserOption,
   Kind,
   Member,
   Role,
@@ -70,6 +72,9 @@ export const api = {
   setProgress: (id: number, percent: number | null) => request("PUT", `/books/${id}/progress`, { percent }),
   watch: (id: number) => request<WatchInfo | null>("GET", `/books/${id}/watch`),
   jellyfin: (id: number) => request<{ url: string | null }>("GET", `/books/${id}/jellyfin`).then((r) => r.url),
+  jellyfinMe: () => request<JellyfinMe>("GET", "/jellyfin/me"),
+  activateJellyfin: () => request<{ name: string }>("POST", "/jellyfin/me"),
+  jellyfinQuickConnect: (code: string) => request("POST", "/jellyfin/quick-connect", { code }),
   stats: () => request<Stats>("GET", "/stats"),
   pushSubscribe: (endpoint: string) => request("POST", "/push/subscribe", { endpoint }),
   pushUnsubscribe: (endpoint: string) => request("POST", "/push/unsubscribe", { endpoint }),
@@ -109,6 +114,9 @@ export const api = {
     removeMember: (email: string) => request("DELETE", `/admin/members/${encodeURIComponent(email)}`),
     approve: (email: string) => request("POST", `/admin/requests/${encodeURIComponent(email)}/approve`),
     reject: (email: string) => request("DELETE", `/admin/requests/${encodeURIComponent(email)}`),
+    jellyfinUsers: () => request<JellyfinUserOption[]>("GET", "/admin/jellyfin/users"),
+    linkJellyfin: (email: string, jellyfinUserId: string | null) =>
+      request("PUT", `/admin/members/${encodeURIComponent(email)}/jellyfin`, { jellyfinUserId }),
   },
 
   currentRound: (kind: Kind = "book") => request<Round | null>("GET", `/rounds/current?kind=${kind}`),

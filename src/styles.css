@@ -724,9 +724,19 @@ p.notify { display: block; }
 .comment-actions { margin-left: auto; display: inline-flex; gap: 2px; white-space: nowrap; }
 
 /* ---------- Jellyfin ---------- */
-.jellyfin-box {
-  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
-  padding: 16px 18px; margin-bottom: 18px; border-radius: 8px; background: var(--panel);
+.jellyfin-box { padding: 16px 18px; margin-bottom: 18px; border-radius: 8px; background: var(--panel); }
+.jellyfin-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.jellyfin-access { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.jellyfin-access:not(.is-compact) { margin-top: 0; padding-top: 0; border-top: 0; }
+.jellyfin-access p { margin: 0 0 10px; }
+.qc-form { display: flex; gap: 10px; margin-bottom: 10px; }
+.qc-form input { width: 9.5em; font-size: 1.3rem; letter-spacing: 0.25em; text-align: center; font-variant-numeric: tabular-nums; }
+.jellyfin-page .panel { max-width: 640px; }
+.jellyfin-steps { padding-left: 20px; }
+.jellyfin-steps li { margin: 6px 0; }
+@media (max-width: 600px) {
+  .jellyfin-head .btn { width: 100%; }
+  .qc-form input { flex: 1; width: auto; }
 }
-.jellyfin-box p { margin: 4px 0 0; }
-@media (max-width: 600px) { .jellyfin-box .btn { width: 100%; } }
+.jellyfin-link { display: flex; flex-direction: row; align-items: center; gap: 8px; margin-top: 6px; font-weight: 400; }
+.jellyfin-link select { padding: 4px 8px; min-height: 0; font-size: 0.85rem; width: auto; max-width: 100%; }

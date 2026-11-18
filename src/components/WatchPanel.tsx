@@ -1,5 +1,6 @@
 import type { WatchProvider } from "../../shared/types";
 import { api } from "../api";
+import { JellyfinAccess } from "./JellyfinAccess";
 import { useAsync } from "../useAsync";
 
 function Providers({ label, items }: { label: string; items: WatchProvider[] }) {
@@ -30,13 +31,13 @@ export function WatchPanel({ bookId, watched }: { bookId: number; watched: boole
       <h2 className="rule-title">Dónde verla</h2>
       {jellyfin && (
         <div className="jellyfin-box">
-          <div>
+          <div className="jellyfin-head">
             <strong>Está en el Jellyfin del club</strong>
-            <p className="muted small">Entra con tu cuenta de Jellyfin. Si no tienes, pídesela a un admin.</p>
+            <a className="btn" href={jellyfin} target="_blank" rel="noopener noreferrer">
+              Ver en Jellyfin
+            </a>
           </div>
-          <a className="btn" href={jellyfin} target="_blank" rel="noopener noreferrer">
-            Ver en Jellyfin
-          </a>
+          <JellyfinAccess compact />
         </div>
       )}
       {info && (

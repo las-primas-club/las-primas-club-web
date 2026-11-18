@@ -71,6 +71,8 @@ function MembersTab() {
   const { user } = useAuth();
   const { data, loading, error: loadError, reload } = useAsync(api.admin.members);
   const { busy, error, run } = useAction(reload);
+  // Usuarios de Jellyfin para enlazar cuentas que ya existían (null si Jellyfin no está configurado o no responde).
+  const { data: jellyfinUsers } = useAsync(() => api.admin.jellyfinUsers().catch(() => null), []);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role>("member");
 
@@ -165,6 +167,35 @@ function MembersTab() {
                     {m.email} ·{" "}
                     {m.last_login_at ? `último acceso ${formatDateTime(m.last_login_at)}` : "aún no ha entrado"}
                   </span>
+                  {jellyfinUsers && m.user_id && (
+                    <label className="jellyfin-link small">
+                      <span className="muted">Jellyfin:</span>
+                      <select
+                        value={m.jellyfin_user_id ?? ""}
+                        disabled={busy}
+                        onChange={(e) =>
+                          run(() => api.admin.linkJellyfin(m.email, e.target.value || null), {
+                            title: e.target.value ? "¿Enlazar con esta cuenta de Jellyfin?" : "¿Quitar el enlace con Jellyfin?",
+                            message: e.target.value
+                              ? "Podrá entrar en Jellyfin como ese usuario con su código de Quick Connect. Sus permisos en Jellyfin no se tocan."
+                              : "Su usuario de Jellyfin no se borra; solo deja de estar enlazado con la web.",
+                            confirmLabel: e.target.value ? "Enlazar" : "Quitar enlace",
+                          })
+                        }
+                        aria-label={`Cuenta de Jellyfin de ${m.email}`}
+                      >
+                        <option value="">Sin cuenta</option>
+                        {jellyfinUsers.map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.name}
+                            {u.admin ? " (admin)" : ""}
+                            {u.disabled ? " (desactivado)" : ""}
+                            {u.id === m.jellyfin_user_id && m.jellyfin_managed ? " · creada por la web" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
                 </div>
                 <div className="person-actions">
                   {m.protected && <span className="pill" title="Definido en ADMIN_EMAILS">Emergencia</span>}

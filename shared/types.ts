@@ -217,6 +217,26 @@ export interface Member {
   last_login_at: string | null;
   /** Admin de emergencia definido en ADMIN_EMAILS: no se puede quitar desde la web. */
   protected: boolean;
+  /** Usuario de Jellyfin enlazado (managed: lo creó la web). */
+  jellyfin_user_id: string | null;
+  jellyfin_name: string | null;
+  jellyfin_managed: boolean;
+}
+
+/** Mi acceso al Jellyfin del club. */
+export interface JellyfinMe {
+  enabled: boolean;
+  url: string | null;
+  /** Quick Connect activado en el servidor (para entrar con un código, sin contraseña). */
+  quickConnect: boolean;
+  account: { name: string } | null;
+}
+
+export interface JellyfinUserOption {
+  id: string;
+  name: string;
+  admin: boolean;
+  disabled: boolean;
 }
 
 export interface AccessRequest {
