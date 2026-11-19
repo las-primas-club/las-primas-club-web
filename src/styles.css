@@ -264,7 +264,16 @@ label { display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-
   display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 20px; padding: 14px 18px;
   border: 1px dashed var(--ink); border-radius: var(--radius); background: #fff;
 }
-.admin-bar > span { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+.admin-bar > span { flex-basis: 100%; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+@media (min-width: 601px) { .admin-bar:has(.deadline-new) { align-items: flex-end; } }
+.admin-bar .deadline-new { flex: 0 1 260px; min-width: 0; }
+
+/* Campos de fecha: en móvil (sobre todo iOS) tienen un ancho mínimo propio y se salen de su caja */
+input[type="datetime-local"], input[type="date"], input[type="time"] {
+  display: block; width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box;
+  -webkit-appearance: none; appearance: none; min-height: 46px; background: #fff; color: var(--ink);
+}
+input[type="datetime-local"]::-webkit-date-and-time-value, input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .proposed-list { padding-left: 20px; }
 .proposed-list li { margin: 4px 0; }
 .vote-status { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1px; margin: 18px 0 0; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
@@ -486,7 +495,15 @@ label.check input { width: 18px; height: 18px; min-height: 0; padding: 0; margin
 .watch-list li { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px 4px 4px; font-size: 0.9rem; font-weight: 600; background: #fff; }
 .watch-list li:not(:has(img)) { padding-left: 12px; }
 .watch-list img { border-radius: 50%; display: block; }
-.deadline-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.deadline-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; flex: 1 1 100%; }
+.deadline-form input { flex: 0 1 260px; }
+.deadline-label { flex-basis: 100%; font-weight: 600; font-size: 0.9rem; }
+.admin-bar .deadline-new input, .deadline-form input { min-height: 44px; }
+@media (max-width: 600px) {
+  .admin-bar .deadline-new { flex-basis: auto; }
+  .deadline-form input { flex: 1 1 100%; }
+  .deadline-form .btn { flex: 1; }
+}
 .notify { display: flex; gap: 12px 16px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-top: 16px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 8px; }
 .notify > span { flex: 1 1 260px; }
 .notify .error { flex-basis: 100%; margin: 0; }

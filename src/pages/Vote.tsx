@@ -230,7 +230,15 @@ export function Vote({ kind }: { kind: Kind }) {
                     void run(() => api.setRoundDeadline(open.id, deadline)).then((ok) => ok && setEditingDeadline(false));
                   }}
                 >
-                  <input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} aria-label="Fecha límite para votar" />
+                  <label className="deadline-label" htmlFor="round-deadline">
+                    Fecha límite para votar
+                  </label>
+                  <input
+                    id="round-deadline"
+                    type="datetime-local"
+                    value={deadline}
+                    onChange={(e) => setDeadline(e.target.value)}
+                  />
                   <button className="btn btn-dark" disabled={busy}>
                     Guardar
                   </button>
@@ -325,7 +333,9 @@ export function Vote({ kind }: { kind: Kind }) {
             <div className="admin-bar">
               <span>Admin</span>
               <label className="deadline-new">
-                Fecha límite <span className="muted">(opcional)</span>
+                <span>
+                  Fecha límite <span className="muted">(opcional)</span>
+                </span>
                 <input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
               </label>
               <button
