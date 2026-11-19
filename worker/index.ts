@@ -389,6 +389,16 @@ const BOOK_SELECT = `
 
 const BOOK_STATUSES = new Set(["proposed", "current", "read"]);
 
+/**
+ * Las propuestas son anónimas hasta que se resuelve su ronda: mientras están pendientes (o compitiendo en una ronda
+ * abierta) nadie ve quién las propuso, salvo quien las propuso. Al cerrarse la ronda, la ganadora pasa a estar en
+ * curso y las demás se archivan: entonces ya se ve el nombre.
+ */
+function hideProposer<T extends Book>(book: T, viewerId: number | undefined): T {
+  if (book.status !== "proposed" || book.archived_at || (viewerId !== undefined && book.proposed_by === viewerId)) return book;
+  return { ...book, proposed_by: null, proposed_by_name: null };
+}
+
 /** Lista de libros o películas (?kind=movie). Con ?kind=all, todo (lo usa el panel de admin). */
 app.get("/books", async (c) => {
   const status = c.req.query("status");
@@ -412,7 +422,8 @@ app.get("/books", async (c) => {
   )
     .bind(...params)
     .all<Book>();
-  return c.json(results);
+  const viewer = c.get("user")?.id;
+  return c.json(results.map((b) => hideProposer(b, viewer)));
 });
 
 async function bookDetail(c: Ctx, where: string, ...params: unknown[]): Promise<BookDetail | null> {
@@ -421,6 +432,7 @@ async function bookDetail(c: Ctx, where: string, ...params: unknown[]): Promise<
     .first<Book>();
   if (!book) return null;
   const user = c.get("user");
+  Object.assign(book, hideProposer(book, user?.id));
   const [ratings, comments, rsvps, progress] = await c.env.DB.batch([
     c.env.DB.prepare(
       `SELECT u.id AS user_id, u.name AS user_name, r.score FROM ratings r JOIN users u ON u.id = r.user_id
@@ -1113,7 +1125,7 @@ async function roundDetail(c: Ctx, roundId: number): Promise<Round> {
   return {
     ...r,
     candidates: (candidates.results as unknown as Book[])
-      .map((book) => ({ book, votes: counts.get(book.id) ?? 0 }))
+      .map((book) => ({ book: hideProposer(book, user?.id), votes: counts.get(book.id) ?? 0 }))
       .sort((a, b) => b.votes - a.votes || a.book.id - b.book.id),
     my_votes: rows.filter((v) => v.user_id === user?.id).map((v) => v.book_id),
     voters: byUser.size,

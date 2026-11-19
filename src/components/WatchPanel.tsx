@@ -1,5 +1,6 @@
 import type { WatchProvider } from "../../shared/types";
 import { api } from "../api";
+import { browserUrl } from "../external";
 import { JellyfinAccess } from "./JellyfinAccess";
 import { useAsync } from "../useAsync";
 
@@ -33,7 +34,7 @@ export function WatchPanel({ bookId, watched }: { bookId: number; watched: boole
         <div className="jellyfin-box">
           <div className="jellyfin-head">
             <strong>Está en el Jellyfin del club</strong>
-            <a className="btn" href={jellyfin} target="_blank" rel="noopener noreferrer">
+            <a className="btn" href={browserUrl(jellyfin)} target="_blank" rel="noopener noreferrer">
               Ver en Jellyfin
             </a>
           </div>

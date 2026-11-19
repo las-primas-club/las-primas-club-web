@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { api } from "../api";
+import { browserUrl } from "../external";
 import { useAuth } from "../auth";
 import { useAsync } from "../useAsync";
 
@@ -68,9 +69,24 @@ export function JellyfinAccess({ compact = false }: { compact?: boolean }) {
       ) : (
         <>
           <p className="small">
-            Tu usuario de Jellyfin es <b>{me.account.name}</b>. Para entrar: en Jellyfin pulsa{" "}
-            <b>Quick Connect</b> y escribe aquí el código que te sale.
+            Tu usuario de Jellyfin es <b>{me.account.name}</b>. Para entrar sin contraseña:
           </p>
+          <ol className="qc-steps small">
+            <li>
+              {me.url ? (
+                <a className="btn btn-ghost btn-sm" href={browserUrl(`${me.url.replace(/\/+$/, "")}/web/`)} target="_blank" rel="noopener noreferrer">
+                  Abrir Jellyfin
+                </a>
+              ) : (
+                "Abre Jellyfin"
+              )}{" "}
+              <span className="muted">(o su app de móvil o tele)</span>
+            </li>
+            <li>
+              Pulsa <b>Quick Connect</b> en su pantalla de inicio.
+            </li>
+            <li>Vuelve aquí y escribe el código de 6 números:</li>
+          </ol>
           <form className="qc-form" onSubmit={approve}>
             <input
               inputMode="numeric"
@@ -88,15 +104,7 @@ export function JellyfinAccess({ compact = false }: { compact?: boolean }) {
           </form>
           {compact && (
             <p className="muted small">
-              <Link to="/cine/jellyfin">¿Desde la tele o el móvil? Cómo entrar ›</Link>
-            </p>
-          )}
-          {!compact && me.url && (
-            <p className="muted small">
-              <a href={me.url} target="_blank" rel="noopener noreferrer">
-                Abrir Jellyfin ›
-              </a>{" "}
-              · También funciona en las apps de Jellyfin para móvil y tele.
+              <Link to="/cine/jellyfin">Más ayuda para entrar ›</Link>
             </p>
           )}
         </>

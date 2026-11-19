@@ -740,3 +740,15 @@ p.notify { display: block; }
 }
 .jellyfin-link { display: flex; flex-direction: row; align-items: center; gap: 8px; margin-top: 6px; font-weight: 400; }
 .jellyfin-link select { padding: 4px 8px; min-height: 0; font-size: 0.85rem; width: auto; max-width: 100%; }
+.proposer.is-anonymous .proposer-initial { background: var(--panel); color: var(--muted); border: 1px dashed var(--line); }
+.qc-steps { margin: 0 0 12px; padding-left: 22px; display: grid; gap: 8px; }
+.qc-steps li::marker { font-weight: 700; color: var(--accent); }
+.qc-steps .btn { vertical-align: middle; }
+.jellyfin-box strong { overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  .jellyfin-box { padding: 14px; margin-left: -4px; margin-right: -4px; }
+  .jellyfin-head { gap: 12px; }
+  .qc-form { flex-wrap: nowrap; }
+  .qc-form input { min-width: 0; font-size: 1.15rem; letter-spacing: 0.18em; }
+  .qc-form .btn { flex: none; }
+}

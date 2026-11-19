@@ -13,17 +13,10 @@ export function JellyfinPage() {
         <section className="panel">
           <JellyfinAccess />
         </section>
-        <section className="detail-section">
-          <h2 className="rule-title">Cómo entrar</h2>
-          <ol className="jellyfin-steps">
-            <li>Activa tu cuenta aquí arriba (solo la primera vez).</li>
-            <li>
-              Abre Jellyfin en el navegador, el móvil o la tele y pulsa <b>Quick Connect</b> en la pantalla de inicio.
-            </li>
-            <li>Escribe aquí el código de 6 números que te sale. En unos segundos estarás dentro.</li>
-          </ol>
-          <p className="muted small">El código hay que meterlo una vez por dispositivo; después Jellyfin te recuerda.</p>
-        </section>
+        <p className="muted small">
+          El código hay que meterlo una vez por dispositivo; después Jellyfin te recuerda. Desde la app instalada de
+          Las Primas Club, Jellyfin se abre en el navegador para que puedas volver aquí con el código.
+        </p>
       </RequireLogin>
     </div>
   );
